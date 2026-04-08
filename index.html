@@ -17,12 +17,17 @@ const firebaseConfig = {
   messagingSenderId: "329846979344",
   appId: "1:329846979344:web:24ff6789c4ea5d8fcac395"
 };
-const app = initializeApp(firebaseConfig);
-const db  = getDatabase(app);
-const ROOT = ref(db, 'casa');
-// Only expose set/watch — NOT _fbReady (to avoid premature writes)
-window._fbSet   = (data) => set(ROOT, JSON.parse(JSON.stringify(data)));
-window._fbWatch = (cb)   => onValue(ROOT, snap => cb(snap.val()));
+try {
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+  const ROOT = ref(db, 'casa');
+  window._fbSet   = (data) => set(ROOT, JSON.parse(JSON.stringify(data)));
+  window._fbWatch = (cb)   => onValue(ROOT, snap => cb(snap.val()), err => { console.error('Firebase read error:', err); window._fbError = err.message; });
+  console.log('Firebase module loaded OK');
+} catch(e) {
+  console.error('Firebase init failed:', e);
+  window._fbError = e.message;
+}
 </script>
 <style>
 /* ─── RESET ───────────────────────────────────────── */
@@ -1390,21 +1395,30 @@ function updateFbStatus(ok){
 }
 
 function initFirebase(){
-  if(!window._fbWatch){ setTimeout(initFirebase, 100); return; }
+  if(!window._fbWatch){
+    if(window._fbError){
+      // Firebase failed to init entirely
+      console.error('Firebase unavailable:', window._fbError);
+      document.getElementById('fb-loading').style.display='none';
+      updateFbStatus(false);
+      renderMonth();
+      toast('⚠️ Firebase indisponível — dados locais');
+      return;
+    }
+    setTimeout(initFirebase, 150);
+    return;
+  }
 
   window._fbWatch(remoteData => {
     updateFbStatus(true);
     applyRemoteData(remoteData);
 
     if(!_fbSynced){
-      // First load — render for the first time
       _fbSynced = true;
       document.getElementById('fb-loading').style.display='none';
       updateMlbl();
       renderMonth();
     } else {
-      // Subsequent update from another device
-      // Only re-render if admin is NOT actively editing an input
       const active = document.activeElement;
       const isEditing = active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA');
       if(!isEditing){
@@ -1422,15 +1436,17 @@ function initFirebase(){
 updateMlbl();
 document.getElementById('fb-loading').style.display='flex';
 
-// Fallback: if Firebase doesn't connect in 5s, show local data
+// Fallback: if Firebase doesn't connect in 8s, show local data
 setTimeout(()=>{
   if(!_fbSynced){
     document.getElementById('fb-loading').style.display='none';
     updateFbStatus(false);
     renderMonth();
-    toast('⚠️ Firebase offline — a usar dados locais');
+    const reason = window._fbError ? ` (${window._fbError})` : '';
+    toast('⚠️ Firebase offline — a usar dados locais' + reason);
+    console.warn('Firebase timeout. Error:', window._fbError||'unknown');
   }
-}, 5000);
+}, 8000);
 
 initFirebase();
 </script>
