@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Casa · Gastos</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyAKitBo87BAH8_Drk-jhKSAxerKRy_yHdA",
+  authDomain: "casa-custos.firebaseapp.com",
+  databaseURL: "https://casa-custos-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "casa-custos",
+  storageBucket: "casa-custos.firebasestorage.app",
+  messagingSenderId: "329846979344",
+  appId: "1:329846979344:web:24ff6789c4ea5d8fcac395"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+const ROOT = ref(db, 'casa');
+window._fbSet   = (data) => set(ROOT, JSON.parse(JSON.stringify(data)));
+window._fbWatch = (cb)   => onValue(ROOT, snap => cb(snap.val()));
+window._fbReady = true;
+</script>
+<style>
+/* ─── RESET ───────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --ink:#1a1612; --ink2:#4a433d; --muted:#8c8078; --subtle:#b8aea4;
+  --rule:#e8e0d6; --surface:#faf6f0; --card:#fff;
+  --lift:0 2px 16px rgba(26,22,18,.07); --lift2:0 8px 32px rgba(26,22,18,.13);
+  --r:16px; --nav:60px; --hdr:96px;
+  --green:#1e7a4a; --green-bg:#eaf5ee;
+  --red:#b5451b; --red-bg:#fdecea;
+  --gold:#8a6010; --gold-bg:#fdf4e0;
+  --admin:#3a2d8a; --admin-bg:#eeeaf8;
+}
+body{font-family:'Outfit',sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;overflow-x:hidden}
+
+/* ─── HEADER ──────────────────────────────────────── */
+#hdr{
+  position:fixed;top:0;left:0;right:0;z-index:90;
+  background:rgba(250,246,240,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--rule);height:var(--hdr);
+  display:flex;flex-direction:column;justify-content:center;gap:8px;padding:10px 18px;
+  transition:border-color .3s;
+}
+#hdr.admin-mode{border-bottom-color:#c5bce8;background:rgba(238,234,248,.96)}
+.hdr-row{display:flex;align-items:center;justify-content:space-between}
+.wordmark{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:8px}
+.wordmark em{color:var(--red);font-style:normal}
+.admin-badge{font-size:.6rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;background:var(--admin);color:#fff;padding:2px 7px;border-radius:20px;display:none}
+.admin-mode .admin-badge{display:inline-flex}
+.hdr-acts{display:flex;gap:6px;align-items:center}
+.mnav{display:flex;align-items:center;justify-content:center;gap:10px}
+.marr{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--rule);background:var(--card);color:var(--ink2);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.marr:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mlbl{font-family:'Playfair Display',serif;font-size:1rem;font-weight:600;min-width:144px;text-align:center;letter-spacing:-.2px}
+.lock-btn{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--rule);background:var(--card);color:var(--muted);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.lock-btn:hover{background:var(--rule);color:var(--ink)}
+.lock-btn.unlocked{background:var(--admin-bg);border-color:#c5bce8;color:var(--admin)}
+
+/* ─── BOTTOM NAV ──────────────────────────────────── */
+#nav{
+  position:fixed;bottom:0;left:0;right:0;height:var(--nav);
+  background:rgba(255,255,255,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--rule);display:flex;align-items:stretch;z-index:90;
+  padding-bottom:env(safe-area-inset-bottom,0);
+}
+.nv{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:none;background:none;cursor:pointer;color:var(--subtle);font-family:'Outfit',sans-serif;font-size:.65rem;font-weight:500;letter-spacing:.3px;text-transform:uppercase;transition:color .2s;padding:6px 2px}
+.nv .ni{font-size:1.2rem;transition:transform .2s}
+.nv.on{color:var(--ink)}.nv.on .ni{transform:scale(1.1)}
+.nv.admin-only{display:none}
+.admin-mode-nav .nv.admin-only{display:flex}
+
+/* ─── MAIN / VIEWS ────────────────────────────────── */
+main{padding-top:var(--hdr);padding-bottom:calc(var(--nav) + 16px);min-height:100vh}
+.view{display:none;padding:16px;animation:rise .25s ease both}
+.view.on{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── CARDS ───────────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--rule);border-radius:var(--r);padding:16px;box-shadow:var(--lift);margin-bottom:12px}
+.clbl{font-size:.67rem;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--subtle);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+
+/* ─── RESULT CARDS ────────────────────────────────── */
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.rcard{border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+.rcard::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.18),transparent)}
+.rcard::after{content:'';position:absolute;top:-20px;right:-20px;width:72px;height:72px;background:rgba(255,255,255,.1);border-radius:50%}
+.rname{font-size:.7rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.8);margin-bottom:2px;position:relative;z-index:1}
+.ramt{font-family:'Playfair Display',serif;font-size:1.9rem;font-weight:700;letter-spacing:-1px;line-height:1.05;color:#fff;position:relative;z-index:1}
+.rmeta{font-size:.68rem;color:rgba(255,255,255,.6);margin-top:4px;line-height:1.4;position:relative;z-index:1}
+
+/* ─── EXTERNAL CONTRIBUTOR CARD ───────────────────── */
+.ext-banner{background:var(--green-bg);border:1.5px solid #b8dfc9;border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.ext-banner-title{font-size:.67rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.ext-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+.ext-row:last-child{border-bottom:none}
+.ext-who{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.ext-avatar{width:28px;height:28px;border-radius:8px;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;flex-shrink:0;font-family:'Playfair Display',serif}
+.ext-info{flex:1;min-width:0}
+.ext-name{font-weight:600;font-size:.88rem;color:var(--green)}
+.ext-desc{font-size:.72rem;color:var(--muted);margin-top:1px}
+.ext-amt{font-weight:700;font-size:.92rem;color:var(--green);flex-shrink:0}
+.ext-del{width:26px;height:26px;border-radius:7px;border:none;background:rgba(0,0,0,.06);color:var(--muted);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.ext-del:hover{background:#f5c6c2;color:var(--red)}
+
+/* ─── BREAKDOWN ───────────────────────────────────── */
+.bkcard{background:var(--ink);color:#fff;border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--lift2)}
+.bktitle{font-size:.67rem;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:10px}
+.bkrow{display:flex;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.07);gap:8px}
+.bkrow:last-child{border-bottom:none}
+.bkico{font-size:1rem;width:22px;text-align:center;flex-shrink:0}
+.bkname{flex:1;font-size:.82rem;color:rgba(255,255,255,.55);min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.bkname strong{color:rgba(255,255,255,.82);font-weight:500}
+.bkvals{display:flex;gap:8px;flex-shrink:0;margin-left:6px}
+.bkv{font-weight:600;font-size:.8rem;min-width:54px;text-align:right}
+.bkvtot{font-weight:700;font-size:.8rem;min-width:54px;text-align:right;color:rgba(255,255,255,.4);border-left:1px solid rgba(255,255,255,.1);padding-left:8px;margin-left:2px}
+.bkhd .bkname{font-size:.65rem;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.22)}
+.bkhd .bkv{font-size:.65rem;letter-spacing:.3px;text-transform:uppercase;font-weight:600}
+.bkhd .bkvtot{font-size:.65rem;letter-spacing:.3px;text-transform:uppercase;font-weight:600;color:rgba(255,255,255,.22)}
+.bktot{border-top:1px solid rgba(255,255,255,.14)!important;border-bottom:none!important;padding-top:10px!important;margin-top:4px}
+.bktot .bkname{color:rgba(255,255,255,.38);font-size:.78rem}
+.bktot .bkv{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:700}
+.bktot .bkvtot{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:700;color:rgba(255,255,255,.5)}
+.bkext .bkname strong{color:#7dd4a0}
+.bkext .bkv{color:#7dd4a0}
+.bkquick .bkname strong{color:#f0c97a}
+.bkquick .bkv{color:#f0c97a}
+
+/* ─── CHIPS ───────────────────────────────────────── */
+.chip{display:inline-flex;align-items:center;gap:3px;font-size:.62rem;font-weight:700;padding:2px 6px;border-radius:20px;letter-spacing:.3px;white-space:nowrap;vertical-align:middle}
+.ceq{background:#f0ede4;color:#5a5040}
+.cprop{background:#e8f0e8;color:#2d5a2d}
+.cpers{background:var(--red-bg);color:#8a2a1a}
+.cwt{background:#eae8f5;color:#4a3a7a}
+.cext{background:var(--green-bg);color:var(--green)}
+.cquick{background:var(--gold-bg);color:var(--gold)}
+
+/* ─── SECTION TOGGLE ──────────────────────────────── */
+.stog{width:100%;background:none;border:none;display:flex;align-items:center;justify-content:space-between;font-family:'Outfit',sans-serif;font-size:.67rem;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--subtle);cursor:pointer;padding:0;margin-bottom:10px}
+.schev{font-size:.82rem;transition:transform .2s}
+.stog.open .schev{transform:rotate(180deg)}
+.sbody{display:none}.sbody.open{display:block}
+
+/* ─── FORMS ───────────────────────────────────────── */
+.field{margin-bottom:13px}.field:last-child{margin-bottom:0}
+.fl{display:block;font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:5px}
+input[type=text],input[type=number],select,textarea{
+  width:100%;border:1.5px solid var(--rule);border-radius:10px;
+  padding:10px 13px;font-family:'Outfit',sans-serif;font-size:.92rem;
+  background:#faf8f4;color:var(--ink);outline:none;transition:border-color .18s,background .18s;
+  appearance:none;-webkit-appearance:none;
+}
+input:focus,select:focus{border-color:var(--ink2);background:#fff}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px;cursor:pointer}
+
+/* ─── STEPPER ─────────────────────────────────────── */
+.stepper{display:flex;align-items:stretch;border:1.5px solid var(--rule);border-radius:10px;overflow:hidden;background:#faf8f4}
+.stbtn{width:42px;border:none;background:none;color:var(--muted);font-size:1.2rem;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stbtn:hover{background:var(--rule);color:var(--ink)}
+.stinp{flex:1;text-align:center;font-weight:600;font-size:.98rem;border:none;background:none;color:var(--ink);min-width:0;padding:10px 0}
+.stinp:focus{outline:none}
+
+/* ─── AMT ROWS ────────────────────────────────────── */
+.arow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.arow:last-child{border-bottom:none}
+.aico{font-size:1.05rem;width:22px;text-align:center;flex-shrink:0}
+.aname{flex:1;font-size:.88rem;font-weight:500;min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.awrap{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.ainp{width:80px;text-align:right;padding:7px 9px;font-size:.88rem;border-radius:8px;border:1.5px solid var(--rule);background:#faf8f4}
+.ainp:focus{border-color:var(--ink2);background:#fff;outline:none}
+.aeur{color:var(--subtle);font-size:.82rem;font-weight:600}
+
+/* ─── PERSON ROWS ─────────────────────────────────── */
+.prow{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.prow:last-child{border-bottom:none}
+.av{border-radius:11px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-weight:700;color:#fff;flex-shrink:0}
+.av40{width:40px;height:40px;font-size:1rem}
+.av30{width:30px;height:30px;font-size:.82rem;border-radius:9px}
+.pinfo{flex:1;min-width:0}
+.pname{font-weight:600;font-size:.92rem}
+.psub{font-size:.7rem;color:var(--muted);margin-top:2px;line-height:1.5}
+.ract{display:flex;gap:5px;flex-shrink:0}
+.ia{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--rule);background:var(--card);color:var(--muted);font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.ia:hover{background:var(--rule);color:var(--ink)}
+.ia.del:hover{background:#fdecea;border-color:#f5c6c2;color:var(--red)}
+
+/* ─── EXPENSE ROWS ────────────────────────────────── */
+.erow{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.erow:last-child{border-bottom:none}
+.eico{font-size:1.2rem;width:28px;text-align:center;flex-shrink:0}
+.einfo{flex:1;min-width:0}
+.ename{font-weight:600;font-size:.9rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.emeta{font-size:.7rem;color:var(--muted);margin-top:2px}
+
+/* ─── DAY TOGGLES ─────────────────────────────────── */
+.daygrid{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.dtog{width:36px;height:36px;border-radius:8px;border:1.5px solid var(--rule);background:#faf8f4;font-size:.68rem;font-weight:700;color:var(--muted);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;letter-spacing:.3px;flex-shrink:0}
+.dtog.on{color:#fff;border-color:transparent}
+
+/* ─── SPLIT OPTIONS ───────────────────────────────── */
+.spgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.spopt{border:2px solid var(--rule);border-radius:12px;padding:11px 9px;cursor:pointer;transition:all .18s;text-align:center}
+.spopt:hover{border-color:var(--ink2)}
+.spopt.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.spico{font-size:1.1rem;display:block;margin-bottom:4px}
+.splbl{font-size:.76rem;font-weight:600;display:block;line-height:1.3}
+.spsub{font-size:.62rem;opacity:.65;display:block;margin-top:2px}
+
+/* ─── PERSON CHECKBOXES ───────────────────────────── */
+.pchkgrid{display:flex;flex-direction:column;gap:7px;margin-top:7px}
+.pchk{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1.5px solid var(--rule);border-radius:10px;cursor:pointer;transition:all .18s;user-select:none}
+.pchk.on{border-color:var(--ink2);background:#f5f2ee}
+.pchdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pchname{flex:1;font-weight:500;font-size:.88rem}
+.pchbox{width:19px;height:19px;border-radius:5px;border:2px solid var(--rule);display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;background:#fff;font-size:.72rem}
+.pchk.on .pchbox{background:var(--ink);border-color:var(--ink);color:#fff}
+
+/* ─── WEIGHTS ─────────────────────────────────────── */
+.wtrow{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.wtdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.wtname{flex:1;font-size:.84rem;font-weight:500;min-width:0}
+.wtinp{width:68px;flex-shrink:0}
+
+/* ─── COLOUR SWATCHES ─────────────────────────────── */
+.cgrid{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.csw{width:34px;height:34px;border-radius:9px;cursor:pointer;border:3px solid transparent;transition:all .18s;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.85rem;font-weight:700}
+.csw.on{border-color:var(--ink);transform:scale(1.1)}
+
+/* ─── EMOJI PICKER ────────────────────────────────── */
+.emgrid{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.emj{width:36px;height:36px;border-radius:9px;border:2px solid var(--rule);background:#faf8f4;font-size:1.15rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.emj.on{border-color:var(--ink);background:var(--surface);transform:scale(1.08)}
+
+/* ─── EXTRA BLOCKS ────────────────────────────────── */
+.xpblk{padding:12px 0;border-bottom:1px solid var(--rule)}
+.xpblk:last-child{border-bottom:none}
+.xphd{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.xptit{font-weight:600;font-size:.88rem}
+.xpsub{font-size:.7rem;color:var(--muted);margin-top:1px}
+.xcrow{display:grid;grid-template-columns:1fr 86px 28px;gap:6px;align-items:center;margin-bottom:6px;animation:rise .2s ease}
+.xdel{width:28px;height:28px;border-radius:7px;border:none;background:#fdecea;color:var(--red);font-size:.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+.xdel:hover{background:#f5c6c2}
+
+/* ─── QUICK EXPENSE LIST ──────────────────────────── */
+.qrow{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.qrow:last-child{border-bottom:none}
+.qico{font-size:1rem;width:22px;text-align:center;flex-shrink:0;margin-top:1px}
+.qinfo{flex:1;min-width:0}
+.qtit{font-weight:600;font-size:.88rem}
+.qsub{font-size:.7rem;color:var(--muted);margin-top:2px;line-height:1.4}
+.qright{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.qamt{font-weight:700;font-size:.88rem}
+
+/* ─── BUTTONS ─────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:10px;padding:10px 16px;font-family:'Outfit',sans-serif;font-size:.86rem;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:.15px}
+.bink{background:var(--ink);color:#fff}.bink:hover{background:#3d3530}
+.bghost{background:var(--card);color:var(--ink);border:1.5px solid var(--rule)}.bghost:hover{background:var(--surface)}
+.bdanger{background:#fdecea;color:var(--red);border:1.5px solid #f5c6c2}.bdanger:hover{background:#f5c6c2}
+.bgreen{background:var(--green-bg);color:var(--green);border:1.5px solid #b8dfc9}.bgreen:hover{background:#d0edd9}
+.badd{background:none;border:2px dashed var(--rule);color:var(--muted);width:100%;padding:9px;border-radius:10px;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px}
+.badd:hover{border-color:var(--ink2);color:var(--ink);background:#faf8f4}
+
+/* ─── FAB BUTTONS ─────────────────────────────────── */
+.fab{display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;border:none;border-radius:12px;font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:10px;letter-spacing:.15px}
+.fab-dark{background:var(--ink);color:#fff;box-shadow:0 4px 16px rgba(26,22,18,.2)}
+.fab-dark:hover{background:#3d3530;transform:translateY(-1px);box-shadow:0 6px 22px rgba(26,22,18,.25)}
+.fab-green{background:var(--green);color:#fff;box-shadow:0 4px 16px rgba(30,122,74,.25)}
+.fab-green:hover{background:#175d38;transform:translateY(-1px)}
+.fab:active{transform:translateY(0)!important}
+
+/* ─── SAVE BUTTON ─────────────────────────────────── */
+.savebtn{width:100%;padding:14px;margin-top:6px;font-size:.92rem;border-radius:13px;background:var(--ink);color:#fff;border:none;font-family:'Outfit',sans-serif;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s;letter-spacing:.15px;box-shadow:0 4px 18px rgba(26,22,18,.18)}
+.savebtn:hover{background:#3d3530;transform:translateY(-1px);box-shadow:0 6px 26px rgba(26,22,18,.24)}
+.savebtn:active{transform:translateY(0)}
+
+/* ─── HISTORY ─────────────────────────────────────── */
+.hitem{padding:14px;border-radius:13px;background:var(--card);border:1px solid var(--rule);margin-bottom:10px;cursor:pointer;transition:all .18s;box-shadow:var(--lift)}
+.hitem:hover{transform:translateY(-2px);box-shadow:var(--lift2)}
+.hmonth{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700}
+.hmeta{font-size:.72rem;color:var(--muted);margin-top:2px}
+.hchips{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.hchip{font-size:.75rem;font-weight:600;padding:3px 10px;border-radius:20px;color:#fff}
+.hexprow{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--rule);font-size:.78rem}
+.hexprow:last-child{border-bottom:none}
+.hexpname{display:flex;align-items:center;gap:6px;color:var(--ink2)}
+.hexpamt{font-weight:700;color:var(--ink)}
+.hexpchips{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.htotalrow{display:flex;justify-content:space-between;padding:8px 0 4px;font-size:.82rem;font-weight:700;border-top:1px solid var(--rule);margin-top:4px}
+.hsection{font-size:.62rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--subtle);margin:10px 0 6px}
+.empty{text-align:center;padding:48px 16px;color:var(--muted)}
+.emico{font-size:2.6rem;display:block;opacity:.32;margin-bottom:10px}
+.emtxt{font-size:.86rem;line-height:1.7}
+.detback{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.backbtn{width:32px;height:32px;border-radius:9px;border:1.5px solid var(--rule);background:var(--card);color:var(--ink);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ─── PIN MODAL ───────────────────────────────────── */
+.pin-display{display:flex;justify-content:center;gap:12px;margin:20px 0 24px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--rule);transition:all .2s}
+.pin-dot.filled{background:var(--admin);border-color:var(--admin);transform:scale(1.1)}
+.pin-dot.error{background:var(--red);border-color:var(--red)}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.pkey{height:56px;border:1.5px solid var(--rule);border-radius:12px;background:#faf8f4;font-family:'Outfit',sans-serif;font-size:1.3rem;font-weight:600;color:var(--ink);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.pkey:hover{background:var(--rule)}
+.pkey:active{transform:scale(.95);background:var(--rule)}
+.pkey.del{font-size:1rem;color:var(--muted)}
+.pkey.wide{grid-column:span 2}
+.pin-hint{text-align:center;font-size:.75rem;color:var(--muted);margin-top:6px}
+
+/* ─── MODAL ───────────────────────────────────────── */
+#mbg{position:fixed;inset:0;background:rgba(26,22,18,.56);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fadein .2s ease}
+#mbg.off{display:none}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.modal{background:var(--card);border-radius:20px 20px 0 0;padding:18px 16px 36px;width:100%;max-width:480px;max-height:91vh;overflow-y:auto;animation:slideup .26s cubic-bezier(.32,.72,0,1)}
+@keyframes slideup{from{transform:translateY(70px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mpill{width:34px;height:4px;background:var(--rule);border-radius:2px;margin:0 auto 16px;display:block}
+.mtitle{font-family:'Playfair Display',serif;font-size:1.28rem;font-weight:700;margin-bottom:16px;letter-spacing:-.3px}
+.mfoot{display:flex;gap:9px;margin-top:18px}
+.mfoot .btn{flex:1;padding:12px}
+
+/* ─── TOAST ───────────────────────────────────────── */
+#toast{position:fixed;bottom:calc(var(--nav) + 12px);left:50%;transform:translateX(-50%) translateY(10px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:11px;font-size:.83rem;font-weight:500;z-index:300;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 18px rgba(0,0,0,.22)}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ─── UTILS ───────────────────────────────────────── */
+.mt6{margin-top:6px}.mt10{margin-top:10px}.mt14{margin-top:14px}
+.mb6{margin-bottom:6px}.mb10{margin-bottom:10px}
+.tsm{font-size:.8rem}.tmuted{color:var(--muted)}.fw6{font-weight:600}
+.hr{height:1px;background:var(--rule);margin:12px 0}
+.admin-only-el{display:none}
+.is-admin .admin-only-el{display:block}
+.is-admin .admin-only-flex{display:flex}
+.admin-only-flex{display:none}
+
+/* ─── INFO PILL ───────────────────────────────────── */
+.info-pill{display:flex;align-items:flex-start;gap:8px;background:var(--gold-bg);border:1px solid #e8d090;border-radius:10px;padding:10px 12px;font-size:.78rem;color:var(--gold);line-height:1.5;margin-bottom:12px}
+.readonly-pill{display:flex;align-items:center;gap:8px;background:var(--admin-bg);border:1px solid #c5bce8;border-radius:10px;padding:8px 12px;font-size:.75rem;color:var(--admin);margin-bottom:12px}
+
+@media(min-width:480px){
+  main{max-width:480px;margin-left:auto;margin-right:auto}
+  #nav{position:fixed;max-width:480px;left:50%;transform:translateX(-50%);right:auto}
+  #hdr{max-width:480px;left:50%;transform:translateX(-50%);right:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header id="hdr">
+  <div class="hdr-row">
+    <div class="wordmark">casa<em>.</em><span class="admin-badge">admin</span></div>
+    <div id="fb-status" style="font-size:.62rem;font-weight:600;padding:2px 7px;border-radius:20px;background:#e8e0d6;color:#8c8078;letter-spacing:.4px">⏳ a ligar</div>
+    <div class="hdr-acts">
+      <button class="ia admin-only-flex" id="btn-people" onclick="showView('people')" title="Pessoas" style="width:32px;height:32px;font-size:.9rem">👥</button>
+      <button class="ia admin-only-flex" id="btn-exps" onclick="showView('expenses')" title="Despesas" style="width:32px;height:32px;font-size:.9rem">📋</button>
+      <button class="lock-btn" id="lockBtn" onclick="toggleAdmin()" title="Modo Administrador">🔒</button>
+    </div>
+  </div>
+  <div class="mnav">
+    <button class="marr" onclick="chMonth(-1)">‹</button>
+    <div class="mlbl" id="mlbl"></div>
+    <button class="marr" onclick="chMonth(1)">›</button>
+  </div>
+</header>
+
+<main id="main">
+  <!-- MÊS -->
+  <div class="view on" id="view-month"><div id="vMonth"></div></div>
+  <!-- PESSOAS (admin only) -->
+  <div class="view" id="view-people">
+    <div class="card">
+      <div class="clbl">Pessoas<button class="btn bghost admin-only-el" style="padding:5px 11px;font-size:.76rem" onclick="openPersonModal()">+ Adicionar</button></div>
+      <div id="vPeople"></div>
+    </div>
+  </div>
+  <!-- DESPESAS -->
+  <div class="view" id="view-expenses">
+    <div id="expReadonlyPill" class="readonly-pill" style="display:none">🔒 Só de leitura — entra em modo administrador para editar</div>
+    <div class="card">
+      <div class="clbl">Despesas Recorrentes<button class="btn bghost admin-only-el" style="padding:5px 11px;font-size:.76rem" onclick="openExpModal()">+ Adicionar</button></div>
+      <div id="vExpenses"></div>
+    </div>
+    <p class="tsm tmuted" style="text-align:center;line-height:1.5;padding:4px 0">Valores predefinidos · Ajusta o real em cada mês</p>
+  </div>
+  <!-- HISTÓRICO -->
+  <div class="view" id="view-history"><div id="vHistory"></div></div>
+</main>
+
+<nav id="nav">
+  <button class="nv on" id="nv-month"    onclick="showView('month')">   <span class="ni">🗓</span>Mês</button>
+  <button class="nv"    id="nv-expenses" onclick="showView('expenses')"> <span class="ni">📋</span>Despesas</button>
+  <button class="nv"    id="nv-history"  onclick="showView('history')">  <span class="ni">🕐</span>Histórico</button>
+  <button class="nv admin-only" id="nv-people" onclick="showView('people')"><span class="ni">👥</span>Pessoas</button>
+</nav>
+
+<div id="mbg" class="off" onclick="bgClose(event)"><div class="modal" id="mbox"></div></div>
+<div id="toast"></div>
+<div id="fb-loading" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(250,246,240,.97);flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif">
+  <div style="font-size:2rem">🔥</div>
+  <div style="font-weight:600;font-size:.95rem;color:#1a1612">A ligar à base de dados…</div>
+  <div style="width:44px;height:4px;background:#e8e0d6;border-radius:2px;overflow:hidden"><div style="height:100%;background:#b5451b;border-radius:2px;animation:fbload 1.2s ease-in-out infinite"></div></div>
+</div>
+<style>@keyframes fbload{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}</style>
+
+<script>
+// ═══════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════
+const DAYS_PT   = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const COLORS    = ['#b5451b','#1a5e8a','#2d7a4f','#8a5a1a','#6b3fa0','#1a7a72','#8a1a3d','#3d6b1a'];
+const EMOJIS    = ['🔥','💡','💧','📡','🧹','🛒','🌐','🏠','🚿','🧺','❄️','♨️','📺','🍽️','🚗','🔑','💊','🐾'];
+const MAX_DAYS  = 31;
+const ADMIN_PIN = '7261';
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+const clone = o  => JSON.parse(JSON.stringify(o));
+const uid   = () => Math.random().toString(36).slice(2,9);
+const byId  = (arr,id) => arr.find(x=>x.id===id);
+
+// ═══════════════════════════════════════════
+//  ADMIN STATE (session only — not persisted)
+// ═══════════════════════════════════════════
+let isAdmin = false;
+
+function toggleAdmin(){
+  if(isAdmin){ logout(); } else { openPinModal(); }
+}
+
+function logout(){
+  isAdmin=false;
+  applyAdminUI();
+  // If on a admin-only view, go back to month
+  if(S.ui.view==='people') showView('month');
+  toast('Sessão de administrador terminada');
+}
+
+function applyAdminUI(){
+  const hdr=document.getElementById('hdr');
+  const nav=document.getElementById('nav');
+  const main=document.getElementById('main');
+  const lockBtn=document.getElementById('lockBtn');
+  const pill=document.getElementById('expReadonlyPill');
+  if(isAdmin){
+    hdr.classList.add('admin-mode');
+    nav.classList.add('admin-mode-nav');
+    main.classList.add('is-admin');
+    lockBtn.classList.add('unlocked');
+    lockBtn.title='Sair do modo administrador';
+    lockBtn.textContent='🔓';
+    if(pill) pill.style.display='none';
+  } else {
+    hdr.classList.remove('admin-mode');
+    nav.classList.remove('admin-mode-nav');
+    main.classList.remove('is-admin');
+    lockBtn.classList.remove('unlocked');
+    lockBtn.title='Modo Administrador';
+    lockBtn.textContent='🔒';
+    if(pill) pill.style.display=(S.ui.view==='expenses')?'flex':'none';
+  }
+  // Re-render current view to show/hide admin controls
+  const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
+  renders[S.ui.view]?.();
+}
+
+// ─── PIN MODAL ─────────────────────────────
+let _pin='';
+
+function openPinModal(){
+  _pin='';
+  openModal(`
+    <span class="mpill"></span>
+    <div class="mtitle" style="text-align:center">🔐 Acesso Admin</div>
+    <p style="text-align:center;font-size:.82rem;color:var(--muted);margin-bottom:4px">Introduz o PIN de administrador</p>
+    <div class="pin-display" id="pinDisplay">
+      <div class="pin-dot" id="pd0"></div>
+      <div class="pin-dot" id="pd1"></div>
+      <div class="pin-dot" id="pd2"></div>
+      <div class="pin-dot" id="pd3"></div>
+    </div>
+    <div class="pin-grid">
+      ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="pkey" onclick="pinKey('${n}')">${n}</button>`).join('')}
+      <button class="pkey del" onclick="pinBack()">⌫</button>
+      <button class="pkey" onclick="pinKey('0')">0</button>
+      <button class="pkey del" onclick="closeModal()">✕</button>
+    </div>
+    <div class="pin-hint">PIN de 4 dígitos</div>
+  `);
+}
+
+function pinKey(d){
+  if(_pin.length>=4) return;
+  _pin+=d;
+  updatePinDots(false);
+  if(_pin.length===4) setTimeout(checkPin,120);
+}
+
+function pinBack(){
+  _pin=_pin.slice(0,-1);
+  updatePinDots(false);
+}
+
+function updatePinDots(error){
+  for(let i=0;i<4;i++){
+    const el=document.getElementById('pd'+i);
+    if(!el) return;
+    el.className='pin-dot'+(error?' error':(_pin.length>i?' filled':''));
+  }
+}
+
+function checkPin(){
+  if(_pin===ADMIN_PIN){
+    isAdmin=true;
+    closeModal();
+    applyAdminUI();
+    toast('Bem-vindo, administrador 👋');
+  } else {
+    updatePinDots(true);
+    setTimeout(()=>{ _pin=''; updatePinDots(false); },800);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+const DEFAULTS = {
+  people:[
+    {id:'p0',name:'Eu',    color:'#b5451b',days:[true,true,true,true,true,true,true]},
+    {id:'p1',name:'Roque', color:'#1a5e8a',days:[true,true,true,true,false,false,false]}
+  ],
+  expenses:[
+    {id:'e0',name:'Gás',  emoji:'🔥',split:'proportional',equalPeople:null,personalTo:null,weights:{},defaultAmount:36.59,fixedCost:3.63},
+    {id:'e1',name:'Luz',  emoji:'💡',split:'proportional',equalPeople:null,personalTo:null,weights:{},defaultAmount:38.96,fixedCost:14.52},
+    {id:'e2',name:'Água', emoji:'💧',split:'proportional',equalPeople:null,personalTo:null,weights:{},defaultAmount:34.84,fixedCost:14.68},
+    {id:'e3',name:'NOS',  emoji:'📡',split:'equal',       equalPeople:null,personalTo:null,weights:{},defaultAmount:41.99,fixedCost:0}
+  ],
+  monthly:{},
+  history:[],
+  ui:{view:'month',month:new Date().getMonth(),year:new Date().getFullYear()}
+};
+
+let S = (() => {
+  try {
+    const d4 = localStorage.getItem('casa_v4');
+    if(d4) {
+      const parsed = JSON.parse(d4);
+      // Migrate: ensure fixedCost exists on all expenses
+      if(parsed.expenses) parsed.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+      return parsed;
+    }
+    const d3 = localStorage.getItem('casa_v3');
+    if(d3){
+      const old = JSON.parse(d3);
+      if(old.monthly) Object.values(old.monthly).forEach(e=>{ if(!e.externalContribs) e.externalContribs=[]; });
+      if(old.expenses) old.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+      localStorage.setItem('casa_v4', JSON.stringify(old));
+      return old;
+    }
+    return clone(DEFAULTS);
+  } catch{ return clone(DEFAULTS); }
+})();
+
+let save = () => {
+  localStorage.setItem('casa_v4', JSON.stringify(S));
+  if(window._fbSet) window._fbSet(S).catch(err => console.warn('Firebase save error:', err));
+};
+
+// ═══════════════════════════════════════════
+//  MONTH ENTRY
+// ═══════════════════════════════════════════
+function mKey(y,m){ return `${y}-${m}`; }
+
+function getEntry(y,m){
+  const k = mKey(y,m);
+  if(!S.monthly[k]) S.monthly[k]={amounts:{},extraDays:{},extraCharges:[],quickExpenses:[],externalContribs:[]};
+  const e = S.monthly[k];
+  S.expenses.forEach(exp=>{ if(e.amounts[exp.id]===undefined) e.amounts[exp.id]=exp.defaultAmount; });
+  if(!e.quickExpenses)    e.quickExpenses=[];
+  if(!e.externalContribs) e.externalContribs=[];
+  return e;
+}
+
+// ═══════════════════════════════════════════
+//  CALCULATION
+// ═══════════════════════════════════════════
+function personDays(person){
+  const weeksPerMonth = MAX_DAYS / 7;
+  const weeklyDays = person.days.filter(Boolean).length;
+  return Math.round(weeklyDays * weeksPerMonth * 100) / 100;
+}
+
+function calc(y,m){
+  return calcFrom(S.people, S.expenses, getEntry(y,m));
+}
+
+// Generic calc that works on any people/expenses/entry (for history replay)
+function calcFrom(people, expenses, entry){
+  const baseDays  = {};
+  const totalDays = {};
+  people.forEach(p=>{
+    baseDays[p.id]  = personDays(p);
+    totalDays[p.id] = baseDays[p.id] + (entry.extraDays[p.id]||0);
+  });
+  const grandDays = Object.values(totalDays).reduce((a,b)=>a+b,0) || 1;
+
+  const shares    = Object.fromEntries(people.map(p=>[p.id,0]));
+  const breakdown = [];
+
+  expenses.forEach(exp=>{
+    const amount = parseFloat(entry.amounts[exp.id])||0;
+    if(!amount) return;
+    const row = {type:'recurring',exp,amount,perPerson:{}};
+    const fixedCost = (exp.split==='proportional' && (exp.fixedCost||0)>0)
+      ? Math.min(parseFloat(exp.fixedCost)||0, amount) : 0;
+    const variablePart = amount - fixedCost;
+    if(exp.split==='proportional'){
+      // Fixed part: split equally between all people (÷2)
+      const fixedEach = fixedCost / (people.length || 1);
+      people.forEach(p=>{
+        const varShare = variablePart * (totalDays[p.id] / grandDays);
+        const v = fixedEach + varShare;
+        row.perPerson[p.id]=v; shares[p.id]+=v;
+      });
+    } else if(exp.split==='equal'){
+      const who  = exp.equalPeople?.length ? exp.equalPeople : people.map(p=>p.id);
+      const each = amount/(who.length||1);
+      people.forEach(p=>{ const v=who.includes(p.id)?each:0; row.perPerson[p.id]=v; shares[p.id]+=v; });
+    } else if(exp.split==='personal'){
+      people.forEach(p=>{ const v=(p.id===exp.personalTo)?amount:0; row.perPerson[p.id]=v; shares[p.id]+=v; });
+    } else if(exp.split==='weights'){
+      const wts    = exp.weights||{};
+      const wTotal = people.reduce((a,p)=>a+(parseFloat(wts[p.id])||1),0)||1;
+      people.forEach(p=>{ const v=amount*((parseFloat(wts[p.id])||1)/wTotal); row.perPerson[p.id]=v; shares[p.id]+=v; });
+    }
+    breakdown.push(row);
+  });
+
+  (entry.extraCharges||[]).forEach(c=>{
+    const v=parseFloat(c.amount)||0; if(!v) return;
+    const pp = Object.fromEntries(people.map(p=>[p.id, p.id===c.personId?v:0]));
+    shares[c.personId]=(shares[c.personId]||0)+v;
+    breakdown.push({type:'extraCharge',c,amount:v,perPerson:pp});
+  });
+
+  (entry.quickExpenses||[]).forEach(q=>{
+    const v=parseFloat(q.amount)||0; if(!v) return;
+    const who  = q.splitPeople?.length ? q.splitPeople : people.map(p=>p.id);
+    const each = v/(who.length||1);
+    const pp   = Object.fromEntries(people.map(p=>[p.id, who.includes(p.id)?each:0]));
+    people.forEach(p=>{ shares[p.id]=(shares[p.id]||0)+pp[p.id]; });
+    breakdown.push({type:'quick',q,amount:v,perPerson:pp});
+  });
+
+  const credits = Object.fromEntries(people.map(p=>[p.id,0]));
+  (entry.externalContribs||[]).forEach(ec=>{
+    const v=parseFloat(ec.amount)||0; if(!v) return;
+    const who  = ec.splitPeople?.length ? ec.splitPeople : people.map(p=>p.id);
+    const weights = ec.splitMode==='proportional'
+      ? who.reduce((obj,pid)=>({...obj,[pid]:totalDays[pid]||1}),{})
+      : who.reduce((obj,pid)=>({...obj,[pid]:1}),{});
+    const wTotal = Object.values(weights).reduce((a,b)=>a+b,0)||1;
+    const pp = Object.fromEntries(people.map(p=>{ const w=weights[p.id]||0; return [p.id, who.includes(p.id)?(v*w/wTotal):0]; }));
+    people.forEach(p=>{ shares[p.id]=(shares[p.id]||0)-pp[p.id]; credits[p.id]=(credits[p.id]||0)+pp[p.id]; });
+    breakdown.push({type:'external',ec,amount:v,perPerson:pp});
+  });
+
+  return {shares,baseDays,totalDays,grandDays,breakdown,credits};
+}
+
+// ═══════════════════════════════════════════
+//  FORMAT HELPERS
+// ═══════════════════════════════════════════
+const fmt    = v => (Math.round(v*100)/100).toFixed(2).replace('.',',')+'€';
+const fmtM   = (y,m) => MONTHS_PT[m]+' '+y;
+const byPid  = id => byId(S.people,id);
+const byEid  = id => byId(S.expenses,id);
+
+function lighten(hex,t=.44){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgb(${Math.round(r+(255-r)*t)},${Math.round(g+(255-g)*t)},${Math.round(b+(255-b)*t)})`;
+}
+
+function splitChip(exp, people){
+  const pp = people || S.people;
+  const findP = id => pp.find(p=>p.id===id);
+  if(exp.split==='equal'){
+    const who=exp.equalPeople?.length?exp.equalPeople:pp.map(p=>p.id);
+    return `<span class="chip ceq">= ${who.map(id=>findP(id)?.name||'?').join(', ')}</span>`;
+  }
+  if(exp.split==='proportional') return `<span class="chip cprop">⚖ proporcional</span>`;
+  if(exp.split==='personal'){const p=findP(exp.personalTo);return `<span class="chip cpers">👤 ${p?p.name:'?'}</span>`;}
+  if(exp.split==='weights')   return `<span class="chip cwt">⚙ pesos</span>`;
+  return '';
+}
+
+// ═══════════════════════════════════════════
+//  VIEW NAVIGATION
+// ═══════════════════════════════════════════
+function showView(name){
+  // Block non-admin from people view
+  if(name==='people' && !isAdmin){ toast('Requer acesso de administrador'); return; }
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.nv').forEach(el=>el.classList.remove('on'));
+  document.getElementById('view-'+name).classList.add('on');
+  const nvEl=document.getElementById('nv-'+name);
+  if(nvEl) nvEl.classList.add('on');
+  S.ui.view=name;
+  // Show/hide readonly pill on expenses
+  const pill=document.getElementById('expReadonlyPill');
+  if(pill) pill.style.display=(name==='expenses'&&!isAdmin)?'flex':'none';
+  ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[name]?.();
+}
+
+function chMonth(d){ S.ui.month+=d; if(S.ui.month>11){S.ui.month=0;S.ui.year++;} if(S.ui.month<0){S.ui.month=11;S.ui.year--;} save(); updateMlbl(); if(S.ui.view==='month') renderMonth(); }
+function updateMlbl(){ document.getElementById('mlbl').textContent=fmtM(S.ui.year,S.ui.month); }
+
+// ═══════════════════════════════════════════
+//  BREAKDOWN TABLE BUILDER (shared by month & history)
+// ═══════════════════════════════════════════
+function buildBreakdownHTML(people, res, showTotCol){
+  const headVals=people.map(p=>`<span class="bkv" style="color:${lighten(p.color,.5)}">${p.name}</span>`).join('');
+  const totHead=showTotCol?`<span class="bkvtot">Total</span>`:'';
+  let rows=`<div class="bkrow bkhd"><span class="bkico"></span><span class="bkname"><strong>Despesa</strong></span><span class="bkvals">${headVals}${totHead}</span></div>`;
+
+  res.breakdown.forEach(row=>{
+    const rowTotal=Object.values(row.perPerson).reduce((a,b)=>a+b,0);
+    const vals=people.map(p=>{
+      const v=row.perPerson[p.id]||0;
+      const display=row.type==='external'?'−'+fmt(v):fmt(v);
+      return `<span class="bkv" style="color:${lighten((p.color||'#888'),.44)}">${display}</span>`;
+    }).join('');
+    const totCell=showTotCol?`<span class="bkvtot">${row.type==='external'?'−':''} ${fmt(Math.abs(rowTotal))}</span>`:'';
+    if(row.type==='recurring'){
+      const fc = parseFloat(row.exp.fixedCost)||0;
+      const hasFC = row.exp.split==='proportional' && fc>0;
+      const fcNote = hasFC ? `<span class="chip ceq" style="font-size:.58rem">fixo ${fmt(Math.min(fc,row.amount))} ÷2</span>` : '';
+      rows+=`<div class="bkrow"><span class="bkico">${row.exp.emoji}</span><span class="bkname"><strong>${row.exp.name}</strong>${splitChip(row.exp,people)}${fcNote}</span><span class="bkvals">${vals}${totCell}</span></div>`;
+    } else if(row.type==='extraCharge'){
+      rows+=`<div class="bkrow"><span class="bkico">➕</span><span class="bkname"><strong>${row.c.label||'Extra'}</strong></span><span class="bkvals">${vals}${totCell}</span></div>`;
+    } else if(row.type==='quick'){
+      rows+=`<div class="bkrow bkquick"><span class="bkico">⚡</span><span class="bkname"><strong>${row.q.label}</strong>${row.q.paidBy?`<span class="chip cquick">${row.q.paidBy}</span>`:''}</span><span class="bkvals">${vals}${totCell}</span></div>`;
+    } else if(row.type==='external'){
+      rows+=`<div class="bkrow bkext"><span class="bkico">✅</span><span class="bkname"><strong>${row.ec.name||'Externo'}</strong><span class="chip cext">crédito</span></span><span class="bkvals">${vals}${totCell}</span></div>`;
+    }
+  });
+
+  const totVals=people.map(p=>`<span class="bkv" style="color:${lighten(p.color,.3)}">${fmt(Math.max(0,res.shares[p.id]||0))}</span>`).join('');
+  const grandTotal=Object.values(res.shares).reduce((a,b)=>a+(b>0?b:0),0);
+  const totTot=showTotCol?`<span class="bkvtot">${fmt(grandTotal)}</span>`:'';
+  rows+=`<div class="bkrow bktot"><span class="bkico"></span><span class="bkname">Total do mês</span><span class="bkvals">${totVals}${totTot}</span></div>`;
+  return rows;
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: MÊS
+// ═══════════════════════════════════════════
+function renderMonth(){
+  const y=S.ui.year, m=S.ui.month;
+  const entry=getEntry(y,m);
+  const res=calc(y,m);
+  const el=document.getElementById('vMonth');
+
+  // Result cards
+  const rcards = S.people.map(p=>{
+    const total=res.shares[p.id]||0;
+    const extra=entry.extraDays[p.id]||0;
+    const baseD=Math.round(res.baseDays[p.id]);
+    const credit=res.credits[p.id]||0;
+    return `<div class="rcard" style="background:${p.color}">
+      <div class="rname">${p.name}</div>
+      <div class="ramt">${fmt(Math.max(0,total))}</div>
+      <div class="rmeta">${baseD+extra} dias${extra?` (+${extra} extra)`:''}${credit>0?`<br>— ${fmt(credit)} crédito`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // External banner
+  let extBanner = '';
+  if((entry.externalContribs||[]).length){
+    const rows = entry.externalContribs.map(ec=>`
+      <div class="ext-row">
+        <div class="ext-who">
+          <div class="ext-avatar">${(ec.name||'?').charAt(0).toUpperCase()}</div>
+          <div class="ext-info">
+            <div class="ext-name">${ec.name||'Externo'}</div>
+            <div class="ext-desc">${ec.desc||''}</div>
+          </div>
+        </div>
+        <span class="ext-amt">− ${fmt(parseFloat(ec.amount)||0)}</span>
+        ${isAdmin?`<button class="ext-del" onclick="delExternal('${ec.id}')">×</button>`:''}
+      </div>`).join('');
+    const total = entry.externalContribs.reduce((a,ec)=>a+(parseFloat(ec.amount)||0),0);
+    extBanner=`<div class="ext-banner">
+      <div class="ext-banner-title">✅ Contribuições Externas · −${fmt(total)} do total</div>
+      ${rows}
+    </div>`;
+  }
+
+  // Breakdown with totals column
+  const bkRows = buildBreakdownHTML(S.people, res, true);
+
+  // Amount rows (admin editable)
+  const amtRows=S.expenses.map(exp=>`
+    <div class="arow">
+      <span class="aico">${exp.emoji}</span>
+      <span class="aname">${exp.name}${splitChip(exp)}</span>
+      <div class="awrap">
+        ${isAdmin
+          ? `<input class="ainp" type="number" min="0" step="0.01" inputmode="decimal" value="${entry.amounts[exp.id]||''}" placeholder="0,00" oninput="setAmt('${exp.id}',this.value)"><span class="aeur">€</span>`
+          : `<span class="fw6" style="font-size:.88rem">${fmt(entry.amounts[exp.id]||0)}</span>`
+        }
+      </div>
+    </div>`).join('');
+
+  // Extra per person (admin only)
+  const xpBlocks=S.people.map(p=>{
+    const extraD=entry.extraDays[p.id]||0;
+    const charges=(entry.extraCharges||[]).filter(c=>c.personId===p.id);
+    const cRows=charges.map(c=>`
+      <div class="xcrow">
+        <input type="text" value="${c.label}" placeholder="Descrição (ex: máquina de lavar)" oninput="updCharge('${c.id}','label',this.value)">
+        <input type="number" value="${c.amount||''}" placeholder="0,00" min="0" step="0.01" inputmode="decimal" oninput="updCharge('${c.id}','amount',this.value)">
+        <button class="xdel" onclick="delCharge('${c.id}')">×</button>
+      </div>`).join('');
+    const baseD=Math.round(res.baseDays[p.id]);
+    return `<div class="xpblk">
+      <div class="xphd">
+        <div class="av av30" style="background:${p.color}">${p.name.charAt(0)}</div>
+        <div><div class="xptit">${p.name}</div><div class="xpsub">${baseD} dias base + ${extraD} extra = ${baseD+extraD} dias</div></div>
+      </div>
+      <div class="field mb10">
+        <label class="fl">Dias extra este mês</label>
+        <div class="stepper">
+          <button class="stbtn" onclick="chExtra('${p.id}',-1)">−</button>
+          <input class="stinp" type="number" min="0" inputmode="numeric" value="${extraD}" oninput="setExtra('${p.id}',this.value)">
+          <button class="stbtn" onclick="chExtra('${p.id}',1)">+</button>
+        </div>
+      </div>
+      ${cRows}
+      <button class="badd" onclick="addCharge('${p.id}')">+ Custo individual para ${p.name}</button>
+    </div>`;
+  }).join('');
+
+  // Quick expense list
+  const qrows=(entry.quickExpenses||[]).map(q=>{
+    const who=q.splitPeople?.length?q.splitPeople:S.people.map(p=>p.id);
+    return `<div class="qrow">
+      <span class="qico">⚡</span>
+      <div class="qinfo">
+        <div class="qtit">${q.label}</div>
+        <div class="qsub">${q.paidBy?`Pago por: <strong>${q.paidBy}</strong> · `:''}Dividido: ${who.map(id=>byPid(id)?.name||'?').join(' + ')}</div>
+      </div>
+      <div class="qright">
+        <span class="qamt">${fmt(parseFloat(q.amount)||0)}</span>
+        ${isAdmin?`<button class="xdel" onclick="delQuick('${q.id}')">×</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Admin-only FABs and sections
+  const adminFabs = isAdmin ? `
+    <button class="fab fab-dark" onclick="openQuickModal()"><span>⚡</span> Despesa pontual</button>
+    <button class="fab fab-green" onclick="openExternalModal()"><span>✅</span> Contribuição externa</button>` : '';
+
+  const adminAmts = isAdmin ? `
+    <div class="card">
+      <button class="stog open" id="tog-amts" onclick="togSec('amts')"><span>Valores das despesas</span><span class="schev">▾</span></button>
+      <div class="sbody open" id="sec-amts">${amtRows}</div>
+    </div>
+    <div class="card" style="border-color:#c5bce8">
+      <button class="stog" id="tog-fixedcosts" onclick="togSec('fixedcosts')" style="color:var(--admin)"><span>⚙️ Custos Fixos das Faturas</span><span class="schev">▾</span></button>
+      <div class="sbody" id="sec-fixedcosts">
+        <div class="info-pill" style="margin-bottom:10px">💡 Os custos fixos (taxas, termos fixos) dividem-se <strong>por igual</strong> entre as duas pessoas. O resto (consumo) divide-se pelos dias de presença.<br>Muda estes valores quando a fatura mudar.</div>
+        ${S.expenses.filter(e=>e.split==='proportional').map(exp=>`
+          <div class="arow">
+            <span class="aico">${exp.emoji}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:.85rem;font-weight:600">${exp.name}</div>
+              <div style="font-size:.7rem;color:var(--muted)">Parte fixa da fatura (taxas, termos fixos...)</div>
+            </div>
+            <div class="awrap">
+              <input class="ainp" type="number" min="0" step="0.01" inputmode="decimal"
+                value="${exp.fixedCost||''}" placeholder="0,00"
+                oninput="setFixedCost('${exp.id}',this.value)">
+              <span class="aeur">€</span>
+            </div>
+          </div>`).join('')}
+        <p class="tsm tmuted" style="margin-top:8px;line-height:1.5">Exemplo: fatura da Luz = 38,96€, dos quais 14,52€ são taxas fixas → cada pessoa paga 7,26€ fixo + a sua parte do consumo variável de 24,44€.</p>
+      </div>
+    </div>
+    <div class="card">
+      <button class="stog" id="tog-adj" onclick="togSec('adj')"><span>Ajustes e custos individuais</span><span class="schev">▾</span></button>
+      <div class="sbody" id="sec-adj">${xpBlocks}</div>
+    </div>` : '';
+
+  const adminSave = isAdmin ? `<button class="savebtn" onclick="saveMonth()">💾 Guardar ${fmtM(y,m)}</button>` : '';
+
+  const quickCard = (entry.quickExpenses||[]).length ? `
+    <div class="card">
+      <button class="stog open" id="tog-quick" onclick="togSec('quick')"><span>Despesas pontuais</span><span class="schev">▾</span></button>
+      <div class="sbody open" id="sec-quick">${qrows}</div>
+    </div>` : '';
+
+  el.innerHTML = `
+    <div class="rgrid">${rcards}</div>
+    ${extBanner}
+    <div class="bkcard">
+      <div class="bktitle">Detalhe por despesa</div>
+      ${bkRows}
+    </div>
+    ${adminFabs}
+    ${adminAmts}
+    ${quickCard}
+    ${adminSave}
+    <div style="height:12px"></div>
+  `;
+}
+
+function togSec(id){
+  document.getElementById('tog-'+id).classList.toggle('open');
+  document.getElementById('sec-'+id).classList.toggle('open');
+}
+
+// Month mutations (admin only)
+function setFixedCost(eid,v){
+  if(!isAdmin) return;
+  const exp = S.expenses.find(e=>e.id===eid);
+  if(exp){ exp.fixedCost = parseFloat(v)||0; save(); renderMonth(); }
+}
+function setAmt(eid,v)  { getEntry(S.ui.year,S.ui.month).amounts[eid]=parseFloat(v)||0; save(); renderMonth(); }
+function chExtra(pid,d) { const e=getEntry(S.ui.year,S.ui.month); e.extraDays[pid]=Math.max(0,(e.extraDays[pid]||0)+d); save(); renderMonth(); }
+function setExtra(pid,v){ const e=getEntry(S.ui.year,S.ui.month); e.extraDays[pid]=Math.max(0,parseInt(v)||0); save(); renderMonth(); }
+function addCharge(pid) { getEntry(S.ui.year,S.ui.month).extraCharges.push({id:uid(),personId:pid,label:'',amount:0}); save(); renderMonth(); }
+function updCharge(cid,f,v){ const e=getEntry(S.ui.year,S.ui.month),c=e.extraCharges.find(x=>x.id===cid); if(c){c[f]=f==='amount'?parseFloat(v)||0:v; save(); renderMonth();} }
+function delCharge(cid){ const e=getEntry(S.ui.year,S.ui.month); e.extraCharges=e.extraCharges.filter(x=>x.id!==cid); save(); renderMonth(); }
+function delQuick(qid)  { const e=getEntry(S.ui.year,S.ui.month); e.quickExpenses=e.quickExpenses.filter(x=>x.id!==qid); save(); renderMonth(); }
+function delExternal(ecid){ const e=getEntry(S.ui.year,S.ui.month); e.externalContribs=e.externalContribs.filter(x=>x.id!==ecid); save(); renderMonth(); }
+
+function saveMonth(){
+  if(!isAdmin){toast('Requer administrador');return;}
+  const y=S.ui.year,m=S.ui.month;
+  const res=calc(y,m); const entry=getEntry(y,m);
+  const snap={id:uid(),year:y,month:m,label:fmtM(y,m),people:clone(S.people),expenses:clone(S.expenses),entry:clone(entry),shares:clone(res.shares),breakdown:clone(res.breakdown),credits:clone(res.credits),grandTotal:Object.values(res.shares).reduce((a,b)=>a+(b>0?b:0),0),savedAt:new Date().toISOString()};
+  const idx=S.history.findIndex(h=>h.year===y&&h.month===m);
+  if(idx>=0){S.history[idx]=snap;toast('Mês atualizado ✓');}else{S.history.unshift(snap);toast('Mês guardado ✓');}
+  save();
+}
+
+// ═══════════════════════════════════════════
+//  EXTERNAL CONTRIBUTION MODAL
+// ═══════════════════════════════════════════
+function openExternalModal(){
+  if(!isAdmin){return;}
+  window._ec={name:'',desc:'',amount:0,splitMode:'proportional',splitPeople:clone(S.people.map(p=>p.id))};
+  const pchecks=S.people.map(p=>`
+    <div class="pchk on" id="ecp-${p.id}" onclick="togECP('${p.id}')">
+      <div class="pchdot" style="background:${p.color}"></div>
+      <span class="pchname">${p.name}</span>
+      <div class="pchbox">✓</div>
+    </div>`).join('');
+  const splitModes=[
+    {val:'proportional',lbl:'Proporcional aos dias',sub:'Quem está mais paga menos do crédito'},
+    {val:'equal',lbl:'Igual entre todos',sub:'O crédito é dividido igualmente'},
+  ].map(o=>`<div class="spopt${o.val===window._ec.splitMode?' on':''}" onclick="pickECSplit('${o.val}')" data-sv="${o.val}" style="text-align:left;padding:10px 12px">
+    <div class="fw6" style="font-size:.82rem">${o.lbl}</div>
+    <div style="font-size:.7rem;opacity:.65;margin-top:2px">${o.sub}</div>
+  </div>`).join('');
+  openModal(`
+    <span class="mpill"></span>
+    <div class="mtitle">✅ Contribuição Externa</div>
+    <div class="info-pill">💡 Usa isto quando alguém de fora deve pagar parte dos custos da casa. O valor é descontado das contas dos moradores.</div>
+    <div class="field"><label class="fl">Nome da pessoa</label><input type="text" id="ecName" placeholder="Ex: Ricardo, Visita de Agosto..." maxlength="40" oninput="window._ec.name=this.value"></div>
+    <div class="field"><label class="fl">Descrição (opcional)</label><input type="text" id="ecDesc" placeholder="Ex: Custos de limpeza que deixou" maxlength="80" oninput="window._ec.desc=this.value"></div>
+    <div class="field"><label class="fl">Valor a pagar (€)</label><input type="number" id="ecAmt" placeholder="0,00" min="0" step="0.01" inputmode="decimal" oninput="window._ec.amount=parseFloat(this.value)||0"></div>
+    <div class="field"><label class="fl">Como distribuir o crédito?</label><div style="display:flex;flex-direction:column;gap:7px;margin-top:6px" id="ecSplitGrid">${splitModes}</div></div>
+    <div class="field"><label class="fl">Reduzir de quem?</label><div class="pchkgrid">${pchecks}</div></div>
+    <div class="mfoot">
+      <button class="btn bghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn bgreen" onclick="saveExternal()">Adicionar</button>
+    </div>`);
+}
+function togECP(pid){ const sp=window._ec.splitPeople,idx=sp.indexOf(pid); if(idx>=0)sp.splice(idx,1);else sp.push(pid); const el=document.getElementById('ecp-'+pid); el.classList.toggle('on',sp.includes(pid)); el.querySelector('.pchbox').textContent=sp.includes(pid)?'✓':''; }
+function pickECSplit(val){ window._ec.splitMode=val; document.querySelectorAll('#ecSplitGrid .spopt').forEach(el=>el.classList.toggle('on',el.dataset.sv===val)); }
+function saveExternal(){
+  const name=document.getElementById('ecName').value.trim();
+  if(!name){toast('Insere o nome da pessoa');return;}
+  const amt=parseFloat(document.getElementById('ecAmt').value)||0;
+  if(!amt){toast('Insere um valor');return;}
+  if(!window._ec.splitPeople.length){toast('Seleciona pelo menos um morador');return;}
+  window._ec.desc=document.getElementById('ecDesc').value.trim();
+  const entry=getEntry(S.ui.year,S.ui.month);
+  entry.externalContribs.push({id:uid(),name,desc:window._ec.desc,amount:amt,splitMode:window._ec.splitMode,splitPeople:clone(window._ec.splitPeople)});
+  save();closeModal();renderMonth();toast(`${name} adicionado ✓`);
+}
+
+// ═══════════════════════════════════════════
+//  QUICK EXPENSE MODAL
+// ═══════════════════════════════════════════
+function openQuickModal(){
+  if(!isAdmin){return;}
+  window._qe={label:'',paidBy:'',amount:0,splitPeople:clone(S.people.map(p=>p.id))};
+  const pchecks=S.people.map(p=>`
+    <div class="pchk on" id="qp-${p.id}" onclick="togQP('${p.id}')">
+      <div class="pchdot" style="background:${p.color}"></div>
+      <span class="pchname">${p.name}</span>
+      <div class="pchbox">✓</div>
+    </div>`).join('');
+  openModal(`
+    <span class="mpill"></span>
+    <div class="mtitle">⚡ Despesa Pontual</div>
+    <div class="field"><label class="fl">Descrição</label><input type="text" id="qLabel" placeholder="Ex: Material de limpeza, encomenda..." maxlength="60" oninput="window._qe.label=this.value"></div>
+    <div class="field"><label class="fl">Valor (€)</label><input type="number" id="qAmt" placeholder="0,00" min="0" step="0.01" inputmode="decimal" oninput="window._qe.amount=parseFloat(this.value)||0"></div>
+    <div class="field"><label class="fl">Pago por (texto livre, opcional)</label><input type="text" id="qPaidBy" placeholder="Ex: Mãe, todos, eu..." maxlength="40" oninput="window._qe.paidBy=this.value"></div>
+    <div class="field"><label class="fl">Dividir entre</label><div class="pchkgrid">${pchecks}</div></div>
+    <div class="mfoot">
+      <button class="btn bghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn bink" onclick="saveQuick()">Adicionar</button>
+    </div>`);
+}
+function togQP(pid){ const sp=window._qe.splitPeople,idx=sp.indexOf(pid); if(idx>=0)sp.splice(idx,1);else sp.push(pid); const el=document.getElementById('qp-'+pid); el.classList.toggle('on',sp.includes(pid)); el.querySelector('.pchbox').textContent=sp.includes(pid)?'✓':''; }
+function saveQuick(){
+  if(!window._qe.label.trim()){toast('Insere uma descrição');return;}
+  if(!window._qe.amount){toast('Insere um valor');return;}
+  if(!window._qe.splitPeople.length){toast('Seleciona pelo menos uma pessoa');return;}
+  const entry=getEntry(S.ui.year,S.ui.month);
+  entry.quickExpenses.push({id:uid(),label:window._qe.label.trim(),paidBy:window._qe.paidBy.trim(),amount:window._qe.amount,splitPeople:clone(window._qe.splitPeople)});
+  save();closeModal();renderMonth();toast('Despesa adicionada ✓');
+}
+
+// ═══════════════════════════════════════════
+//  RENDER: PESSOAS (admin only)
+// ═══════════════════════════════════════════
+function renderPeople(){
+  const el=document.getElementById('vPeople');
+  if(!S.people.length){el.innerHTML='<p class="tsm tmuted" style="text-align:center;padding:20px">Nenhuma pessoa.</p>';return;}
+  el.innerHTML=S.people.map(p=>{
+    const dots=p.days.map((on,i)=>on?`<span style="color:${p.color};font-weight:800">${DAYS_PT[i].charAt(0)}</span>`:`<span style="color:var(--rule)">·</span>`).join(' ');
+    const cnt=p.days.filter(Boolean).length;
+    const daysM=Math.round(personDays(p));
+    return `<div class="prow">
+      <div class="av av40" style="background:${p.color}">${p.name.charAt(0).toUpperCase()}</div>
+      <div class="pinfo"><div class="pname">${p.name}</div><div class="psub">${cnt} dias/sem · ~${daysM} dias/mês &nbsp; ${dots}</div></div>
+      <div class="ract">
+        <button class="ia" onclick="openPersonModal('${p.id}')">✏️</button>
+        ${S.people.length>1?`<button class="ia del" onclick="delPerson('${p.id}')">🗑</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function delPerson(id){ if(!isAdmin||!confirm('Remover esta pessoa?'))return; S.people=S.people.filter(p=>p.id!==id); save();renderPeople(); }
+
+// ═══════════════════════════════════════════
+//  RENDER: DESPESAS
+// ═══════════════════════════════════════════
+function renderExpenses(){
+  const el=document.getElementById('vExpenses');
+  if(!S.expenses.length){el.innerHTML='<p class="tsm tmuted" style="text-align:center;padding:20px">Nenhuma despesa.</p>';return;}
+  el.innerHTML=S.expenses.map(exp=>`
+    <div class="erow">
+      <span class="eico">${exp.emoji}</span>
+      <div class="einfo">
+        <div class="ename">${exp.name} ${splitChip(exp)}</div>
+        <div class="emeta">Padrão: ${exp.defaultAmount?fmt(exp.defaultAmount):'—'}</div>
+      </div>
+      ${isAdmin?`<div class="ract">
+        <button class="ia" onclick="openExpModal('${exp.id}')">✏️</button>
+        <button class="ia del" onclick="delExp('${exp.id}')">🗑</button>
+      </div>`:''}
+    </div>`).join('');
+}
+function delExp(id){ if(!isAdmin||!confirm('Remover?'))return; S.expenses=S.expenses.filter(e=>e.id!==id); save();renderExpenses(); }
+
+// ═══════════════════════════════════════════
+//  RENDER: HISTÓRICO
+// ═══════════════════════════════════════════
+function renderHistory(detId){
+  const el=document.getElementById('vHistory');
+  if(detId){
+    const h=S.history.find(x=>x.id===detId); if(!h){renderHistory();return;}
+    const saved=new Date(h.savedAt).toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric'});
+
+    // Reconstruct calc from snapshot
+    const res = h.breakdown
+      ? { shares:h.shares, credits:h.credits||{}, breakdown:h.breakdown,
+          baseDays:Object.fromEntries(h.people.map(p=>[p.id,personDays(p)])),
+          totalDays:Object.fromEntries(h.people.map(p=>[p.id,(personDays(p))+(h.entry.extraDays?.[p.id]||0)])) }
+      : calcFrom(h.people, h.expenses, h.entry);
+
+    // Summary cards
+    const cards=h.people.map(p=>`
+      <div class="rcard" style="background:${p.color}">
+        <div class="rname">${p.name}</div>
+        <div class="ramt">${fmt(Math.max(0,h.shares[p.id]||0))}</div>
+        <div class="rmeta">${Math.round(res.totalDays?.[p.id]||0)} dias${(h.entry.extraDays?.[p.id])?` (+${h.entry.extraDays[p.id]} extra)`:''}${(res.credits?.[p.id]||0)>0?`<br>— ${fmt(res.credits[p.id])} crédito`:''}</div>
+      </div>`).join('');
+
+    // Full breakdown table with totals
+    const bkRows = buildBreakdownHTML(h.people, res, true);
+
+    // Recurring expenses detail
+    const recurringRows = h.expenses.map(exp=>{
+      const amt=parseFloat(h.entry.amounts?.[exp.id])||0;
+      return `<div class="hexprow">
+        <span class="hexpname">${exp.emoji} <span>${exp.name}</span>${splitChip(exp,h.people)}</span>
+        <span class="hexpamt">${fmt(amt)}</span>
+      </div>`;
+    }).join('');
+
+    // Quick expenses
+    const quickRows=(h.entry.quickExpenses||[]).map(q=>{
+      const who=(q.splitPeople?.length?q.splitPeople:h.people.map(p=>p.id)).map(id=>h.people.find(p=>p.id===id)?.name||'?').join(' + ');
+      return `<div class="hexprow">
+        <span class="hexpname">⚡ <span>${q.label}</span>${q.paidBy?`<span class="chip cquick">${q.paidBy}</span>`:''}</span>
+        <span class="hexpamt">${fmt(parseFloat(q.amount)||0)}</span>
+      </div>`;
+    }).join('');
+
+    // External contributions
+    const extRows=(h.entry.externalContribs||[]).map(ec=>`
+      <div class="hexprow">
+        <span class="hexpname">✅ <span>${ec.name||'Externo'}</span>${ec.desc?`<span class="chip cext">${ec.desc}</span>`:''}</span>
+        <span class="hexpamt" style="color:var(--green)">−${fmt(parseFloat(ec.amount)||0)}</span>
+      </div>`).join('');
+
+    // Extra charges
+    const chargeRows=(h.entry.extraCharges||[]).map(c=>{
+      const person=h.people.find(p=>p.id===c.personId);
+      return `<div class="hexprow">
+        <span class="hexpname">➕ <span>${c.label||'Extra'}</span>${person?`<span class="chip cpers">${person.name}</span>`:''}</span>
+        <span class="hexpamt">${fmt(parseFloat(c.amount)||0)}</span>
+      </div>`;
+    }).join('');
+
+    const grandTotal=Object.values(h.shares).reduce((a,b)=>a+(b>0?b:0),0);
+
+    el.innerHTML=`
+      <div class="detback">
+        <button class="backbtn" onclick="renderHistory()">‹</button>
+        <div><div class="hmonth">${h.label}</div><div class="hmeta">Guardado ${saved}</div></div>
+      </div>
+
+      <div class="rgrid">${cards}</div>
+
+      <div class="bkcard">
+        <div class="bktitle">Detalhe por despesa · com totais</div>
+        ${bkRows}
+      </div>
+
+      <div class="card">
+        <div class="hsection">Despesas recorrentes</div>
+        ${recurringRows||'<p class="tsm tmuted">—</p>'}
+        <div class="htotalrow">
+          <span>Total recorrentes</span>
+          <span>${fmt(h.expenses.reduce((a,exp)=>a+(parseFloat(h.entry.amounts?.[exp.id])||0),0))}</span>
+        </div>
+      </div>
+
+      ${quickRows?`<div class="card">
+        <div class="hsection">Despesas pontuais</div>
+        ${quickRows}
+        <div class="htotalrow"><span>Total pontuais</span><span>${fmt((h.entry.quickExpenses||[]).reduce((a,q)=>a+(parseFloat(q.amount)||0),0))}</span></div>
+      </div>`:''}
+
+      ${extRows?`<div class="card">
+        <div class="hsection">Contribuições externas</div>
+        ${extRows}
+        <div class="htotalrow" style="color:var(--green)"><span>Total créditos</span><span>−${fmt((h.entry.externalContribs||[]).reduce((a,ec)=>a+(parseFloat(ec.amount)||0),0))}</span></div>
+      </div>`:''}
+
+      ${chargeRows?`<div class="card">
+        <div class="hsection">Custos individuais</div>
+        ${chargeRows}
+      </div>`:''}
+
+      ${isAdmin?`<div style="text-align:center;padding:10px 0"><button class="btn bdanger" onclick="delHist('${h.id}')">🗑 Apagar registo</button></div>`:''}
+    `;
+    return;
+  }
+
+  if(!S.history.length){
+    el.innerHTML=`<div class="empty"><span class="emico">📭</span><p class="emtxt">Nenhum mês guardado ainda.<br>Preenche as contas e carrega em<br><strong>Guardar</strong> (modo admin).</p></div>`;return;
+  }
+  el.innerHTML=S.history.map(h=>{
+    const chips=h.people.map(p=>`<span class="hchip" style="background:${p.color}">${p.name}: ${fmt(Math.max(0,h.shares[p.id]||0))}</span>`).join('');
+    const d=new Date(h.savedAt).toLocaleDateString('pt-PT',{day:'numeric',month:'short'});
+    const numExps=h.expenses?.length||0;
+    const numQuick=(h.entry?.quickExpenses||[]).length;
+    const numExt=(h.entry?.externalContribs||[]).length;
+    const totalRec=h.expenses?.reduce((a,exp)=>a+(parseFloat(h.entry?.amounts?.[exp.id])||0),0)||0;
+    return `<div class="hitem" onclick="renderHistory('${h.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="hmonth">${h.label}</div><div class="hmeta">${d}</div>
+      </div>
+      <div class="hmeta" style="margin-top:4px">Total: <strong style="color:var(--ink)">${fmt(h.grandTotal)}</strong> · ${numExps} despesas${numQuick?` · ${numQuick} pontuais`:''}${numExt?` · ${numExt} contribuição ext.`:''}</div>
+      <div class="hexpchips" style="margin-top:6px">
+        ${h.expenses?.map(exp=>`<span class="chip ceq">${exp.emoji} ${exp.name}: ${fmt(parseFloat(h.entry?.amounts?.[exp.id])||0)}</span>`).join('')||''}
+      </div>
+      <div class="hchips">${chips}</div>
+    </div>`;
+  }).join('');
+}
+
+function delHist(id){ if(!isAdmin||!confirm('Apagar registo?'))return; S.history=S.history.filter(h=>h.id!==id); save();renderHistory(); }
+
+// ═══════════════════════════════════════════
+//  PERSON MODAL
+// ═══════════════════════════════════════════
+function openPersonModal(id){
+  if(!isAdmin){return;}
+  const existing=id?byPid(id):null;
+  window._ep=clone(existing||{id:null,name:'',color:COLORS[S.people.length%COLORS.length],days:[true,true,true,true,false,false,false]});
+  const cswatches=COLORS.map(c=>`<div class="csw${c===window._ep.color?' on':''}" style="background:${c}" onclick="pickPColor('${c}')" data-pc="${c}">${c===window._ep.color?'✓':''}</div>`).join('');
+  const dbtns=DAYS_PT.map((d,i)=>`<button class="dtog${window._ep.days[i]?' on':''}" style="${window._ep.days[i]?'background:'+window._ep.color+';border-color:'+window._ep.color:''}" onclick="togPDay(${i})" id="pd${i}">${d}</button>`).join('');
+  openModal(`
+    <span class="mpill"></span>
+    <div class="mtitle">${id?'Editar Pessoa':'Nova Pessoa'}</div>
+    <div class="field"><label class="fl">Nome</label><input type="text" id="pName" value="${window._ep.name}" placeholder="Nome" maxlength="20"></div>
+    <div class="field"><label class="fl">Cor</label><div class="cgrid">${cswatches}</div></div>
+    <div class="field"><label class="fl">Dias em casa por semana</label><div class="daygrid">${dbtns}</div></div>
+    <div class="mfoot">
+      <button class="btn bghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn bink" onclick="savePerson('${id||''}')">Guardar</button>
+    </div>`);
+}
+function pickPColor(c){
+  window._ep.color=c;
+  document.querySelectorAll('.csw').forEach(el=>{el.classList.toggle('on',el.dataset.pc===c);el.textContent=el.dataset.pc===c?'✓':'';});
+  window._ep.days.forEach((on,i)=>{const el=document.getElementById('pd'+i);if(el&&on){el.style.background=c;el.style.borderColor=c;}});
+}
+function togPDay(i){
+  window._ep.days[i]=!window._ep.days[i];
+  const el=document.getElementById('pd'+i);
+  el.classList.toggle('on',window._ep.days[i]);
+  el.style.background=window._ep.days[i]?window._ep.color:'';
+  el.style.borderColor=window._ep.days[i]?window._ep.color:'';
+}
+function savePerson(id){
+  if(!isAdmin){return;}
+  const name=document.getElementById('pName').value.trim();
+  if(!name){toast('Insere um nome');return;}
+  const p={...window._ep,name};
+  if(id){const idx=S.people.findIndex(x=>x.id===id);if(idx>=0)S.people[idx]={...p,id};}
+  else S.people.push({...p,id:uid()});
+  save();closeModal();renderPeople();if(S.ui.view==='month')renderMonth();
+}
+
+// ═══════════════════════════════════════════
+//  EXPENSE MODAL
+// ═══════════════════════════════════════════
+function openExpModal(id){
+  if(!isAdmin){return;}
+  const existing=id?byEid(id):null;
+  window._ee=clone(existing||{id:null,name:'',emoji:'🔥',split:'proportional',equalPeople:null,personalTo:S.people[0]?.id||null,weights:{},defaultAmount:0,fixedCost:0});
+  if(!window._ee.equalPeople) window._ee.equalPeople=S.people.map(p=>p.id);
+  const emjPicker=EMOJIS.map(e=>`<div class="emj${e===window._ee.emoji?' on':''}" onclick="pickEmoji('${e}')" data-em="${e}">${e}</div>`).join('');
+  const spOpts=[
+    {v:'proportional',i:'⚖️',l:'Proporcional',s:'Pelos dias de presença'},
+    {v:'equal',i:'🟰',l:'Igual',s:'Dividido por pessoas'},
+    {v:'personal',i:'👤',l:'Pessoal',s:'Uma pessoa paga tudo'},
+    {v:'weights',i:'⚙️',l:'Pesos',s:'Percentagem manual'},
+  ].map(o=>`<div class="spopt${window._ee.split===o.v?' on':''}" onclick="pickSplit('${o.v}')" data-sp="${o.v}"><span class="spico">${o.i}</span><span class="splbl">${o.l}</span><span class="spsub">${o.s}</span></div>`).join('');
+  const eqChecks=S.people.map(p=>`<div class="pchk${window._ee.equalPeople?.includes(p.id)?' on':''}" id="eqp-${p.id}" onclick="togEqP('${p.id}')"><div class="pchdot" style="background:${p.color}"></div><span class="pchname">${p.name}</span><div class="pchbox">${window._ee.equalPeople?.includes(p.id)?'✓':''}</div></div>`).join('');
+  const persOpts=S.people.map(p=>`<option value="${p.id}"${window._ee.personalTo===p.id?' selected':''}>${p.name}</option>`).join('');
+  const wtRows=S.people.map(p=>`<div class="wtrow"><div class="wtdot" style="background:${p.color}"></div><span class="wtname">${p.name}</span><input class="wtinp" type="number" min="1" step="1" value="${window._ee.weights[p.id]||1}" id="wt_${p.id}"></div>`).join('');
+  openModal(`
+    <span class="mpill"></span>
+    <div class="mtitle">${id?'Editar Despesa':'Nova Despesa'}</div>
+    <div class="field"><label class="fl">Emoji</label><div class="emgrid">${emjPicker}</div></div>
+    <div class="field"><label class="fl">Nome</label><input type="text" id="eName" value="${window._ee.name}" placeholder="Ex: Gás, Netflix..." maxlength="30"></div>
+    <div class="field"><label class="fl">Valor padrão (€)</label><input type="number" id="eAmt" value="${window._ee.defaultAmount||''}" placeholder="0,00" min="0" step="0.01" inputmode="decimal"></div>
+    <div class="field" id="fixedCostField" style="display:${window._ee.split==='proportional'?'block':'none'}">
+      <label class="fl">Custo fixo desta despesa (€) <span style="font-size:.68rem;color:var(--admin);font-weight:400">— dividido por igual entre todos</span></label>
+      <input type="number" id="eFixedCost" value="${window._ee.fixedCost||''}" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
+      <p class="tsm tmuted" style="margin-top:4px;line-height:1.4">Ex: taxas fixas, termos tarifários. O resto divide-se pelos dias de presença.</p>
+    </div>
+    <div class="field"><label class="fl">Tipo de divisão</label><div class="spgrid">${spOpts}</div></div>
+    <div class="field" id="eqf" style="display:${window._ee.split==='equal'?'block':'none'}"><label class="fl">Dividir entre quem?</label><div class="pchkgrid">${eqChecks}</div></div>
+    <div class="field" id="pf"  style="display:${window._ee.split==='personal'?'block':'none'}"><label class="fl">Quem paga?</label><select id="ePers">${persOpts}</select></div>
+    <div class="field" id="wf"  style="display:${window._ee.split==='weights'?'block':'none'}"><label class="fl">Peso por pessoa</label><div class="mt6">${wtRows}</div></div>
+    <div class="mfoot">
+      <button class="btn bghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn bink" onclick="saveExp('${id||''}')">Guardar</button>
+    </div>`);
+}
+function pickEmoji(e){window._ee.emoji=e;document.querySelectorAll('.emj').forEach(el=>el.classList.toggle('on',el.dataset.em===e));}
+function pickSplit(v){
+  window._ee.split=v;
+  document.querySelectorAll('.spopt').forEach(el=>el.classList.toggle('on',el.dataset.sp===v));
+  document.getElementById('eqf').style.display=v==='equal'?'block':'none';
+  document.getElementById('pf').style.display=v==='personal'?'block':'none';
+  document.getElementById('wf').style.display=v==='weights'?'block':'none';
+  const fcf=document.getElementById('fixedCostField');
+  if(fcf) fcf.style.display=v==='proportional'?'block':'none';
+}
+function togEqP(pid){
+  const ep=window._ee.equalPeople||[],idx=ep.indexOf(pid);
+  if(idx>=0)ep.splice(idx,1);else ep.push(pid);
+  window._ee.equalPeople=[...ep];
+  const el=document.getElementById('eqp-'+pid);
+  el.classList.toggle('on',ep.includes(pid));
+  el.querySelector('.pchbox').textContent=ep.includes(pid)?'✓':'';
+}
+function saveExp(id){
+  if(!isAdmin){return;}
+  const name=document.getElementById('eName').value.trim();
+  if(!name){toast('Insere um nome');return;}
+  const e={...window._ee,name};
+  e.defaultAmount=parseFloat(document.getElementById('eAmt').value)||0;
+  e.fixedCost=e.split==='proportional'?(parseFloat(document.getElementById('eFixedCost')?.value)||0):0;
+  e.personalTo=e.split==='personal'?document.getElementById('ePers').value:null;
+  if(e.split==='weights'){e.weights={};S.people.forEach(p=>{e.weights[p.id]=parseFloat(document.getElementById('wt_'+p.id).value)||1;});}
+  if(e.split==='equal'&&!e.equalPeople?.length) e.equalPeople=S.people.map(p=>p.id);
+  if(id){const idx=S.expenses.findIndex(x=>x.id===id);if(idx>=0)S.expenses[idx]={...e,id};}
+  else S.expenses.push({...e,id:uid()});
+  save();closeModal();renderExpenses();if(S.ui.view==='month')renderMonth();
+}
+
+// ═══════════════════════════════════════════
+//  MODAL
+// ═══════════════════════════════════════════
+function openModal(html){document.getElementById('mbox').innerHTML=html;document.getElementById('mbg').classList.remove('off');}
+function closeModal(){document.getElementById('mbg').classList.add('off');}
+function bgClose(e){if(e.target.id==='mbg')closeModal();}
+
+// ═══════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════
+let _tt;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2600);}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  FIREBASE SYNC
+// ═══════════════════════════════════════════
+let _fbSynced = false;
+
+function initFirebase(){
+  if(!window._fbWatch){ setTimeout(initFirebase, 100); return; }
+  window._fbWatch(remoteData => {
+    // Update status badge
+    const badge = document.getElementById('fb-status');
+    if(badge){ badge.textContent='☁️ sync'; badge.style.background='#eaf5ee'; badge.style.color='#1e7a4a'; }
+
+    if(remoteData && typeof remoteData === 'object'){
+      S = remoteData;
+      if(S.expenses) S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+      if(!S.ui) S.ui={view:'month',month:new Date().getMonth(),year:new Date().getFullYear()};
+      localStorage.setItem('casa_v4', JSON.stringify(S));
+    }
+    if(!_fbSynced){
+      _fbSynced = true;
+      document.getElementById('fb-loading').style.display='none';
+      updateMlbl();
+      renderMonth();
+    } else {
+      updateMlbl();
+      const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
+      renders[S.ui?.view||'month']?.();
+    }
+  });
+}
+
+updateMlbl();
+document.getElementById('fb-loading').style.display='flex';
+// Fallback: if Firebase doesn't connect in 4s, show local data
+setTimeout(()=>{
+  if(!_fbSynced){
+    document.getElementById('fb-loading').style.display='none';
+    renderMonth();
+  }
+}, 4000);
+initFirebase();
+</script>
+</body>
+</html>
