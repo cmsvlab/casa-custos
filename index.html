@@ -403,10 +403,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <div id="mbg" class="off" onclick="bgClose(event)"><div class="modal" id="mbox"></div></div>
 <div id="toast"></div>
-<div id="fb-loading" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(250,246,240,.97);flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif">
-  <div style="font-size:2rem">🔥</div>
-  <div style="font-weight:600;font-size:.95rem;color:#1a1612">A ligar à base de dados…</div>
-  <div style="width:44px;height:4px;background:#e8e0d6;border-radius:2px;overflow:hidden"><div style="height:100%;background:#b5451b;border-radius:2px;animation:fbload 1.2s ease-in-out infinite"></div></div>
+<div id="fb-loading" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(250,246,240,.97);flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif;pointer-events:none">
+  <div style="pointer-events:all;display:flex;flex-direction:column;align-items:center;gap:14px">
+    <div style="font-size:2rem">🔥</div>
+    <div style="font-weight:600;font-size:.95rem;color:#1a1612">A ligar à base de dados…</div>
+    <div style="width:44px;height:4px;background:#e8e0d6;border-radius:2px;overflow:hidden"><div style="height:100%;background:#b5451b;border-radius:2px;animation:fbload 1.2s ease-in-out infinite"></div></div>
+  </div>
 </div>
 <style>@keyframes fbload{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}</style>
 
@@ -1227,7 +1229,7 @@ function openExpModal(id){
   const existing=id?byEid(id):null;
   window._ee=clone(existing||{id:null,name:'',emoji:'🔥',split:'proportional',equalPeople:null,personalTo:S.people[0]?.id||null,weights:{},defaultAmount:0,fixedCost:0});
   if(!window._ee.equalPeople) window._ee.equalPeople=S.people.map(p=>p.id);
-  const emjPicker=EMOJIS.map(e=>`<div class="emj${e===window._ee.emoji?' on':''}" onclick="pickEmoji('${e}')" data-em="${e}">${e}</div>`).join('');
+  const emjPicker=EMOJIS.map(em=>`<div class="emj${em===window._ee.emoji?' on':''}" onclick="pickEmoji('${em}')" data-em="${em}">${em}</div>`).join('');
   const spOpts=[
     {v:'proportional',i:'⚖️',l:'Proporcional',s:'Pelos dias de presença'},
     {v:'equal',i:'🟰',l:'Igual',s:'Dividido por pessoas'},
@@ -1313,6 +1315,15 @@ function setFbStatus(ok){
 }
 
 function applyRemoteData(remote){
+  // null means Firebase DB is empty — push our local data up
+  if(remote === null){
+    console.log('Firebase DB vazia — a guardar dados locais no Firebase');
+    if(window._fbSet && !_fbReceiving){
+      const data={people:S.people,expenses:S.expenses,monthly:S.monthly,history:S.history};
+      window._fbSet(data).catch(e=>console.error('Firebase initial write error:',e));
+    }
+    return;
+  }
   if(!remote || typeof remote !== 'object') return;
   try{
     _fbReceiving = true;
@@ -1322,7 +1333,7 @@ function applyRemoteData(remote){
     if(Array.isArray(remote.history))                             S.history  = remote.history;
     S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
     const payload={people:S.people,expenses:S.expenses,monthly:S.monthly,history:S.history};
-    localStorage.setItem('casa_v5', JSON.stringify(payload));
+    try{ localStorage.setItem('casa_v5', JSON.stringify(payload)); }catch(e){}
   }catch(e){ console.error('applyRemoteData error:',e); }
   finally{ _fbReceiving=false; }
 }
