@@ -430,6 +430,13 @@ const clone = o  => JSON.parse(JSON.stringify(o));
 const uid   = () => Math.random().toString(36).slice(2,9);
 const byId  = (arr,id) => arr.find(x=>x.id===id);
 
+// ─── Helper: Firebase returns arrays as objects {0:{},1:{}} — convert back ──
+function toArr(val){
+  if(!val) return [];
+  if(Array.isArray(val)) return val;
+  return Object.keys(val).sort((a,b)=>Number(a)-Number(b)).map(k=>val[k]);
+}
+
 // ═══════════════════════════════════════════
 //  ADMIN STATE (session only — not persisted)
 // ═══════════════════════════════════════════
@@ -578,16 +585,17 @@ let S = (()=>{
 let _fbReceiving = false;
 let _fbWriteTimer = null;
 
+let _myWriteAt = 0; // timestamp of our last Firebase write
+
 const save = () => {
-  // Always save locally first
   const data = { people:S.people, expenses:S.expenses, monthly:S.monthly, history:S.history };
   try{ localStorage.setItem('casa_v5', JSON.stringify(data)); }catch(e){}
-  // Debounced Firebase write — skip if we're receiving remote data (prevents echo loop)
   if(window._fbSet && !_fbReceiving){
     clearTimeout(_fbWriteTimer);
     _fbWriteTimer = setTimeout(()=>{
+      _myWriteAt = Date.now();
       window._fbSet(data).catch(err=>{ console.error('Firebase write error:',err); toast('⚠️ Erro ao guardar na cloud'); });
-    }, 600);
+    }, 800); // 800ms debounce — gives user time to keep typing
   }
 };
 
@@ -790,6 +798,33 @@ function buildBreakdownHTML(people, res, showTotCol){
 // ═══════════════════════════════════════════
 //  RENDER: MÊS
 // ═══════════════════════════════════════════
+// Track which sections are open so renderMonth can restore them
+const _openSecs = new Set(['amts']); // amts open by default
+
+function togSec(id){
+  document.getElementById('tog-'+id).classList.toggle('open');
+  document.getElementById('sec-'+id).classList.toggle('open');
+  if(_openSecs.has(id)) _openSecs.delete(id); else _openSecs.add(id);
+}
+
+function applyOpenSecs(){
+  _openSecs.forEach(id=>{
+    const tog=document.getElementById('tog-'+id);
+    const sec=document.getElementById('sec-'+id);
+    if(tog && !tog.classList.contains('open')) tog.classList.add('open');
+    if(sec && !sec.classList.contains('open'))  sec.classList.add('open');
+  });
+  // Also remove 'open' from sections NOT in _openSecs
+  ['amts','fixedcosts','adj','quick'].forEach(id=>{
+    if(!_openSecs.has(id)){
+      const tog=document.getElementById('tog-'+id);
+      const sec=document.getElementById('sec-'+id);
+      if(tog) tog.classList.remove('open');
+      if(sec) sec.classList.remove('open');
+    }
+  });
+}
+
 function renderMonth(){
   const y=_ui.year, m=_ui.month;
   const entry=getEntry(y,m);
@@ -893,8 +928,8 @@ function renderMonth(){
 
   const adminAmts = isAdmin ? `
     <div class="card">
-      <button class="stog open" id="tog-amts" onclick="togSec('amts')"><span>Valores das despesas</span><span class="schev">▾</span></button>
-      <div class="sbody open" id="sec-amts">${amtRows}</div>
+      <button class="stog" id="tog-amts" onclick="togSec('amts')"><span>Valores das despesas</span><span class="schev">▾</span></button>
+      <div class="sbody" id="sec-amts">${amtRows}</div>
     </div>
     <div class="card" style="border-color:#c5bce8">
       <button class="stog" id="tog-fixedcosts" onclick="togSec('fixedcosts')" style="color:var(--admin)"><span>⚙️ Custos Fixos das Faturas</span><span class="schev">▾</span></button>
@@ -926,8 +961,8 @@ function renderMonth(){
 
   const quickCard = (entry.quickExpenses||[]).length ? `
     <div class="card">
-      <button class="stog open" id="tog-quick" onclick="togSec('quick')"><span>Despesas pontuais</span><span class="schev">▾</span></button>
-      <div class="sbody open" id="sec-quick">${qrows}</div>
+      <button class="stog" id="tog-quick" onclick="togSec('quick')"><span>Despesas pontuais</span><span class="schev">▾</span></button>
+      <div class="sbody" id="sec-quick">${qrows}</div>
     </div>` : '';
 
   el.innerHTML = `
@@ -943,12 +978,11 @@ function renderMonth(){
     ${adminSave}
     <div style="height:12px"></div>
   `;
+  // Restore open/closed state of sections (prevents them closing on re-render)
+  applyOpenSecs();
 }
 
-function togSec(id){
-  document.getElementById('tog-'+id).classList.toggle('open');
-  document.getElementById('sec-'+id).classList.toggle('open');
-}
+
 
 // Month mutations (admin only)
 // Note: setAmt, setFixedCost, setExtra, updCharge do NOT re-render — user is typing
@@ -1319,14 +1353,6 @@ function setFbStatus(ok){
   b.style.color = ok ? '#1e7a4a' : '#b5451b';
 }
 
-// ─── Firebase helper: converts Firebase objects-as-arrays back to real arrays ──
-function toArr(val){
-  if(!val) return [];
-  if(Array.isArray(val)) return val;
-  // Firebase converts arrays to {0:{...}, 1:{...}} objects
-  return Object.keys(val).sort((a,b)=>Number(a)-Number(b)).map(k=>val[k]);
-}
-
 function applyRemoteData(remote){
   // null means Firebase DB is empty — push our local data up
   if(remote === null){
@@ -1396,17 +1422,24 @@ function initFirebase(){
       setFbStatus(true);
       applyRemoteData(remoteData);
       if(!_fbSynced){
+        // First connection — always render
         _fbSynced=true;
         document.getElementById('fb-loading').style.display='none';
         updateMlbl();
         renderMonth();
       } else {
-        // Live update — only re-render if not typing
-        const ae=document.activeElement;
-        if(!ae || (ae.tagName!=='INPUT' && ae.tagName!=='TEXTAREA')){
-          updateMlbl();
-          ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[_ui.view]?.();
+        // Subsequent update — check if it's our own echo or a real remote change
+        const isOwnEcho = (Date.now() - _myWriteAt) < 3000; // within 3s of our write
+        const ae = document.activeElement;
+        const userTyping = ae && (ae.tagName==='INPUT' || ae.tagName==='TEXTAREA' || ae.tagName==='SELECT');
+        
+        if(isOwnEcho || userTyping){
+          // Skip re-render: it's our own echo or admin is typing
+          return;
         }
+        // Real update from another device — re-render
+        updateMlbl();
+        ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[_ui.view]?.();
       }
     },
     err => {
