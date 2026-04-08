@@ -598,11 +598,15 @@ function mKey(y,m){ return `${y}-${m}`; }
 
 function getEntry(y,m){
   const k = mKey(y,m);
-  if(!S.monthly[k]) S.monthly[k]={amounts:{},extraDays:{},extraCharges:[],quickExpenses:[],externalContribs:[]};
+  if(!S.monthly[k]) S.monthly[k]={};
   const e = S.monthly[k];
+  // Always ensure all fields exist — Firebase omits empty objects/arrays
+  if(!e.amounts   || typeof e.amounts   !=='object') e.amounts   = {};
+  if(!e.extraDays || typeof e.extraDays !=='object' || Array.isArray(e.extraDays)) e.extraDays = {};
+  if(!Array.isArray(e.extraCharges))   e.extraCharges   = toArr(e.extraCharges);
+  if(!Array.isArray(e.quickExpenses))  e.quickExpenses  = toArr(e.quickExpenses);
+  if(!Array.isArray(e.externalContribs)) e.externalContribs = toArr(e.externalContribs);
   S.expenses.forEach(exp=>{ if(e.amounts[exp.id]===undefined) e.amounts[exp.id]=exp.defaultAmount; });
-  if(!e.quickExpenses)    e.quickExpenses=[];
-  if(!e.externalContribs) e.externalContribs=[];
   return e;
 }
 
@@ -611,7 +615,8 @@ function getEntry(y,m){
 // ═══════════════════════════════════════════
 function personDays(person){
   const weeksPerMonth = MAX_DAYS / 7;
-  const weeklyDays = person.days.filter(Boolean).length;
+  const days = Array.isArray(person.days) ? person.days : toArr(person.days);
+  const weeklyDays = days.filter(Boolean).length;
   return Math.round(weeklyDays * weeksPerMonth * 100) / 100;
 }
 
@@ -624,7 +629,7 @@ function calcFrom(people, expenses, entry){
   const totalDays = {};
   people.forEach(p=>{
     baseDays[p.id]  = personDays(p);
-    totalDays[p.id] = baseDays[p.id] + (entry.extraDays[p.id]||0);
+    totalDays[p.id] = baseDays[p.id] + ((entry.extraDays && entry.extraDays[p.id])||0);
   });
   const grandDays = Object.values(totalDays).reduce((a,b)=>a+b,0) || 1;
 
@@ -1238,7 +1243,7 @@ function openExpModal(id){
   ].map(o=>`<div class="spopt${window._ee.split===o.v?' on':''}" onclick="pickSplit('${o.v}')" data-sp="${o.v}"><span class="spico">${o.i}</span><span class="splbl">${o.l}</span><span class="spsub">${o.s}</span></div>`).join('');
   const eqChecks=S.people.map(p=>`<div class="pchk${window._ee.equalPeople?.includes(p.id)?' on':''}" id="eqp-${p.id}" onclick="togEqP('${p.id}')"><div class="pchdot" style="background:${p.color}"></div><span class="pchname">${p.name}</span><div class="pchbox">${window._ee.equalPeople?.includes(p.id)?'✓':''}</div></div>`).join('');
   const persOpts=S.people.map(p=>`<option value="${p.id}"${window._ee.personalTo===p.id?' selected':''}>${p.name}</option>`).join('');
-  const wtRows=S.people.map(p=>`<div class="wtrow"><div class="wtdot" style="background:${p.color}"></div><span class="wtname">${p.name}</span><input class="wtinp" type="number" min="1" step="1" value="${window._ee.weights[p.id]||1}" id="wt_${p.id}"></div>`).join('');
+  const _wts=window._ee.weights||{}; const wtRows=S.people.map(p=>`<div class="wtrow"><div class="wtdot" style="background:${p.color}"></div><span class="wtname">${p.name}</span><input class="wtinp" type="number" min="1" step="1" value="${_wts[p.id]||1}" id="wt_${p.id}"></div>`).join('');
   openModal(`
     <span class="mpill"></span>
     <div class="mtitle">${id?'Editar Despesa':'Nova Despesa'}</div>
@@ -1353,10 +1358,12 @@ function applyRemoteData(remote){
       if(entry.externalContribs && !Array.isArray(entry.externalContribs)) entry.externalContribs = toArr(entry.externalContribs);
     });
 
-    // Also fix arrays inside expenses
+    // Sanitize expenses fields
     S.expenses.forEach(e=>{
       if(e.fixedCost===undefined) e.fixedCost=0;
+      if(!e.weights || typeof e.weights !== 'object' || Array.isArray(e.weights)) e.weights={};
       if(e.equalPeople && !Array.isArray(e.equalPeople)) e.equalPeople = toArr(e.equalPeople);
+      else if(!e.equalPeople) e.equalPeople = null;
     });
 
     // Fix arrays inside people (days array)
