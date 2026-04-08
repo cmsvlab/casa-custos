@@ -20,9 +20,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
 const ROOT = ref(db, 'casa');
+// Only expose set/watch — NOT _fbReady (to avoid premature writes)
 window._fbSet   = (data) => set(ROOT, JSON.parse(JSON.stringify(data)));
 window._fbWatch = (cb)   => onValue(ROOT, snap => cb(snap.val()));
-window._fbReady = true;
 </script>
 <style>
 /* ─── RESET ───────────────────────────────────────── */
@@ -340,6 +340,10 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .info-pill{display:flex;align-items:flex-start;gap:8px;background:var(--gold-bg);border:1px solid #e8d090;border-radius:10px;padding:10px 12px;font-size:.78rem;color:var(--gold);line-height:1.5;margin-bottom:12px}
 .readonly-pill{display:flex;align-items:center;gap:8px;background:var(--admin-bg);border:1px solid #c5bce8;border-radius:10px;padding:8px 12px;font-size:.75rem;color:var(--admin);margin-bottom:12px}
 
+/* ─── FIREBASE LOADING ────────────────────────────── */
+@keyframes fbload{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}
+#fb-loading{display:none;position:fixed;inset:0;z-index:500;background:rgba(250,246,240,.97);flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif}
+
 @media(min-width:480px){
   main{max-width:480px;margin-left:auto;margin-right:auto}
   #nav{position:fixed;max-width:480px;left:50%;transform:translateX(-50%);right:auto}
@@ -353,7 +357,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <header id="hdr">
   <div class="hdr-row">
     <div class="wordmark">casa<em>.</em><span class="admin-badge">admin</span></div>
-    <div id="fb-status" style="font-size:.62rem;font-weight:600;padding:2px 7px;border-radius:20px;background:#e8e0d6;color:#8c8078;letter-spacing:.4px">⏳ a ligar</div>
+    <div id="fb-status" style="font-size:.62rem;font-weight:600;padding:2px 7px;border-radius:20px;background:#e8e0d6;color:#8c8078;letter-spacing:.4px;transition:all .4s">⏳ a ligar</div>
     <div class="hdr-acts">
       <button class="ia admin-only-flex" id="btn-people" onclick="showView('people')" title="Pessoas" style="width:32px;height:32px;font-size:.9rem">👥</button>
       <button class="ia admin-only-flex" id="btn-exps" onclick="showView('expenses')" title="Despesas" style="width:32px;height:32px;font-size:.9rem">📋</button>
@@ -368,16 +372,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </header>
 
 <main id="main">
-  <!-- MÊS -->
   <div class="view on" id="view-month"><div id="vMonth"></div></div>
-  <!-- PESSOAS (admin only) -->
   <div class="view" id="view-people">
     <div class="card">
       <div class="clbl">Pessoas<button class="btn bghost admin-only-el" style="padding:5px 11px;font-size:.76rem" onclick="openPersonModal()">+ Adicionar</button></div>
       <div id="vPeople"></div>
     </div>
   </div>
-  <!-- DESPESAS -->
   <div class="view" id="view-expenses">
     <div id="expReadonlyPill" class="readonly-pill" style="display:none">🔒 Só de leitura — entra em modo administrador para editar</div>
     <div class="card">
@@ -386,7 +387,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
     <p class="tsm tmuted" style="text-align:center;line-height:1.5;padding:4px 0">Valores predefinidos · Ajusta o real em cada mês</p>
   </div>
-  <!-- HISTÓRICO -->
   <div class="view" id="view-history"><div id="vHistory"></div></div>
 </main>
 
@@ -399,12 +399,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <div id="mbg" class="off" onclick="bgClose(event)"><div class="modal" id="mbox"></div></div>
 <div id="toast"></div>
-<div id="fb-loading" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(250,246,240,.97);flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif">
+
+<!-- Firebase loading overlay -->
+<div id="fb-loading">
   <div style="font-size:2rem">🔥</div>
   <div style="font-weight:600;font-size:.95rem;color:#1a1612">A ligar à base de dados…</div>
-  <div style="width:44px;height:4px;background:#e8e0d6;border-radius:2px;overflow:hidden"><div style="height:100%;background:#b5451b;border-radius:2px;animation:fbload 1.2s ease-in-out infinite"></div></div>
+  <div style="width:44px;height:4px;background:#e8e0d6;border-radius:2px;overflow:hidden">
+    <div style="height:100%;background:#b5451b;border-radius:2px;animation:fbload 1.2s ease-in-out infinite"></div>
+  </div>
 </div>
-<style>@keyframes fbload{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}</style>
 
 <script>
 // ═══════════════════════════════════════════
@@ -425,7 +428,7 @@ const uid   = () => Math.random().toString(36).slice(2,9);
 const byId  = (arr,id) => arr.find(x=>x.id===id);
 
 // ═══════════════════════════════════════════
-//  ADMIN STATE (session only — not persisted)
+//  ADMIN STATE (session only)
 // ═══════════════════════════════════════════
 let isAdmin = false;
 
@@ -539,47 +542,85 @@ const DEFAULTS = {
     {id:'e3',name:'NOS',  emoji:'📡',split:'equal',       equalPeople:null,personalTo:null,weights:{},defaultAmount:41.99,fixedCost:0}
   ],
   monthly:{},
-  history:[],
-  ui:{view:'month',month:new Date().getMonth(),year:new Date().getFullYear()}
+  history:[]
+  // NOTE: ui is intentionally NOT stored in DEFAULTS/Firebase — it's local only
 };
 
+// ── Local UI state (never synced to Firebase) ──
+let _localUI = {
+  view: 'month',
+  month: new Date().getMonth(),
+  year:  new Date().getFullYear()
+};
+
+function loadLocalUI(){
+  try {
+    const stored = localStorage.getItem('casa_ui');
+    if(stored) _localUI = JSON.parse(stored);
+  } catch(e){}
+}
+
+function saveLocalUI(){
+  localStorage.setItem('casa_ui', JSON.stringify(_localUI));
+}
+
+// S never contains .ui anymore — always use _localUI
 let S = (() => {
   try {
-    const d4 = localStorage.getItem('casa_v4');
-    if(d4) {
-      const parsed = JSON.parse(d4);
+    const d = localStorage.getItem('casa_v5');
+    if(d){
+      const parsed = JSON.parse(d);
       if(parsed.expenses) parsed.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+      // Strip ui if it crept in from an older version
+      delete parsed.ui;
       return parsed;
     }
-    const d3 = localStorage.getItem('casa_v3');
-    if(d3){
-      const old = JSON.parse(d3);
+    // Migrate from v4
+    const d4 = localStorage.getItem('casa_v4');
+    if(d4){
+      const old = JSON.parse(d4);
       if(old.monthly) Object.values(old.monthly).forEach(e=>{ if(!e.externalContribs) e.externalContribs=[]; });
       if(old.expenses) old.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
-      localStorage.setItem('casa_v4', JSON.stringify(old));
+      delete old.ui;
+      localStorage.setItem('casa_v5', JSON.stringify(old));
       return old;
     }
     return clone(DEFAULTS);
   } catch{ return clone(DEFAULTS); }
 })();
 
-// Variável para controlar se está a sincronizar do Firebase
-let _isSyncing = false;
+loadLocalUI();
 
-let save = () => {
-  localStorage.setItem('casa_v4', JSON.stringify(S));
-  
-  // Só tenta gravar no Firebase se estiver pronto e não estiver a sincronizar
-  if(window._fbSet && window._fbReady && !_isSyncing) {
-    console.log('💾 A guardar no Firebase...');
-    window._fbSet(S).then(() => {
-      console.log('✅ Guardado no Firebase');
-    }).catch(err => {
-      console.error('❌ Erro Firebase:', err);
-      toast('⚠️ Erro ao sincronizar (a usar dados locais)');
-    });
+// ── Convenience proxy so old code still works with S.ui ──
+Object.defineProperty(S, 'ui', {
+  get(){ return _localUI; },
+  set(v){ Object.assign(_localUI, v); saveLocalUI(); },
+  configurable: true, enumerable: false
+});
+
+// ═══════════════════════════════════════════
+//  SAVE — local + Firebase, no loop
+// ═══════════════════════════════════════════
+let _fbWriteTimer = null;   // debounce Firebase writes
+let _fbReceiving  = false;  // true while processing incoming Firebase data
+
+function save(){
+  // 1. Save locally immediately (fast, synchronous)
+  const payload = clone(S);
+  delete payload.ui; // never persist ui
+  localStorage.setItem('casa_v5', JSON.stringify(payload));
+
+  // 2. Debounce Firebase write by 600ms so rapid typing doesn't spam
+  if(window._fbSet && !_fbReceiving){
+    clearTimeout(_fbWriteTimer);
+    _fbWriteTimer = setTimeout(()=>{
+      window._fbSet(payload).catch(err=>{
+        console.error('Firebase write error:', err);
+        toast('⚠️ Erro ao sincronizar');
+      });
+    }, 600);
   }
-};
+}
 
 // ═══════════════════════════════════════════
 //  MONTH ENTRY
@@ -625,14 +666,14 @@ function calcFrom(people, expenses, entry){
     const amount = parseFloat(entry.amounts[exp.id])||0;
     if(!amount) return;
     const row = {type:'recurring',exp,amount,perPerson:{}};
-    const fixedCost = (exp.split==='proportional' && (exp.fixedCost||0)>0)
-      ? Math.min(parseFloat(exp.fixedCost)||0, amount) : 0;
-    const variablePart = amount - fixedCost;
+
     if(exp.split==='proportional'){
-      const fixedEach = fixedCost / (people.length || 1);
+      // Fixed part split equally ÷ N, variable part split by presence days
+      const fixedCost    = Math.min(parseFloat(exp.fixedCost)||0, amount);
+      const variablePart = amount - fixedCost;
+      const fixedEach    = fixedCost / (people.length || 1);
       people.forEach(p=>{
-        const varShare = variablePart * (totalDays[p.id] / grandDays);
-        const v = fixedEach + varShare;
+        const v = fixedEach + variablePart * (totalDays[p.id] / grandDays);
         row.perPerson[p.id]=v; shares[p.id]+=v;
       });
     } else if(exp.split==='equal'){
@@ -717,24 +758,24 @@ function showView(name){
   document.getElementById('view-'+name).classList.add('on');
   const nvEl=document.getElementById('nv-'+name);
   if(nvEl) nvEl.classList.add('on');
-  S.ui.view=name;
-  save();
+  _localUI.view=name;
+  saveLocalUI();
   const pill=document.getElementById('expReadonlyPill');
   if(pill) pill.style.display=(name==='expenses'&&!isAdmin)?'flex':'none';
   ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[name]?.();
 }
 
-function chMonth(d){ 
-  S.ui.month+=d; 
-  if(S.ui.month>11){S.ui.month=0;S.ui.year++;} 
-  if(S.ui.month<0){S.ui.month=11;S.ui.year--;} 
-  save(); 
-  updateMlbl(); 
-  if(S.ui.view==='month') renderMonth(); 
+function chMonth(d){
+  _localUI.month+=d;
+  if(_localUI.month>11){_localUI.month=0;_localUI.year++;}
+  if(_localUI.month<0){_localUI.month=11;_localUI.year--;}
+  saveLocalUI();
+  updateMlbl();
+  if(_localUI.view==='month') renderMonth();
 }
 
-function updateMlbl(){ 
-  document.getElementById('mlbl').textContent=fmtM(S.ui.year,S.ui.month); 
+function updateMlbl(){
+  document.getElementById('mlbl').textContent=fmtM(_localUI.year,_localUI.month);
 }
 
 // ═══════════════════════════════════════════
@@ -778,7 +819,7 @@ function buildBreakdownHTML(people, res, showTotCol){
 //  RENDER: MÊS
 // ═══════════════════════════════════════════
 function renderMonth(){
-  const y=S.ui.year, m=S.ui.month;
+  const y=_localUI.year, m=_localUI.month;
   const entry=getEntry(y,m);
   const res=calc(y,m);
   const el=document.getElementById('vMonth');
@@ -937,24 +978,25 @@ function togSec(id){
   document.getElementById('sec-'+id).classList.toggle('open');
 }
 
-// Month mutations (admin only)
+// ── Month mutations (admin only) ──
 function setFixedCost(eid,v){
   if(!isAdmin) return;
   const exp = S.expenses.find(e=>e.id===eid);
-  if(exp){ exp.fixedCost = parseFloat(v)||0; save(); renderMonth(); }
+  if(exp){ exp.fixedCost = parseFloat(v)||0; save(); }
+  // Don't re-render — user is still typing in the input
 }
-function setAmt(eid,v)  { if(!isAdmin) return; getEntry(S.ui.year,S.ui.month).amounts[eid]=parseFloat(v)||0; save(); renderMonth(); }
-function chExtra(pid,d) { if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.extraDays[pid]=Math.max(0,(e.extraDays[pid]||0)+d); save(); renderMonth(); }
-function setExtra(pid,v){ if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.extraDays[pid]=Math.max(0,parseInt(v)||0); save(); renderMonth(); }
-function addCharge(pid) { if(!isAdmin) return; getEntry(S.ui.year,S.ui.month).extraCharges.push({id:uid(),personId:pid,label:'',amount:0}); save(); renderMonth(); }
-function updCharge(cid,f,v){ if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month),c=e.extraCharges.find(x=>x.id===cid); if(c){c[f]=f==='amount'?parseFloat(v)||0:v; save(); renderMonth();} }
-function delCharge(cid){ if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.extraCharges=e.extraCharges.filter(x=>x.id!==cid); save(); renderMonth(); }
-function delQuick(qid)  { if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.quickExpenses=e.quickExpenses.filter(x=>x.id!==qid); save(); renderMonth(); }
-function delExternal(ecid){ if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.externalContribs=e.externalContribs.filter(x=>x.id!==ecid); save(); renderMonth(); }
+function setAmt(eid,v)  { if(!isAdmin) return; getEntry(_localUI.year,_localUI.month).amounts[eid]=parseFloat(v)||0; save(); }
+function chExtra(pid,d) { if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.extraDays[pid]=Math.max(0,(e.extraDays[pid]||0)+d); save(); renderMonth(); }
+function setExtra(pid,v){ if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.extraDays[pid]=Math.max(0,parseInt(v)||0); save(); }
+function addCharge(pid) { if(!isAdmin) return; getEntry(_localUI.year,_localUI.month).extraCharges.push({id:uid(),personId:pid,label:'',amount:0}); save(); renderMonth(); }
+function updCharge(cid,f,v){ if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month),c=e.extraCharges.find(x=>x.id===cid); if(c){c[f]=f==='amount'?parseFloat(v)||0:v; save();} }
+function delCharge(cid){ if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.extraCharges=e.extraCharges.filter(x=>x.id!==cid); save(); renderMonth(); }
+function delQuick(qid)  { if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.quickExpenses=e.quickExpenses.filter(x=>x.id!==qid); save(); renderMonth(); }
+function delExternal(ecid){ if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.externalContribs=e.externalContribs.filter(x=>x.id!==ecid); save(); renderMonth(); }
 
 function saveMonth(){
   if(!isAdmin){toast('Requer administrador');return;}
-  const y=S.ui.year,m=S.ui.month;
+  const y=_localUI.year,m=_localUI.month;
   const res=calc(y,m); const entry=getEntry(y,m);
   const snap={id:uid(),year:y,month:m,label:fmtM(y,m),people:clone(S.people),expenses:clone(S.expenses),entry:clone(entry),shares:clone(res.shares),breakdown:clone(res.breakdown),credits:clone(res.credits),grandTotal:Object.values(res.shares).reduce((a,b)=>a+(b>0?b:0),0),savedAt:new Date().toISOString()};
   const idx=S.history.findIndex(h=>h.year===y&&h.month===m);
@@ -1004,7 +1046,7 @@ function saveExternal(){
   if(!amt){toast('Insere um valor');return;}
   if(!window._ec.splitPeople.length){toast('Seleciona pelo menos um morador');return;}
   window._ec.desc=document.getElementById('ecDesc').value.trim();
-  const entry=getEntry(S.ui.year,S.ui.month);
+  const entry=getEntry(_localUI.year,_localUI.month);
   entry.externalContribs.push({id:uid(),name,desc:window._ec.desc,amount:amt,splitMode:window._ec.splitMode,splitPeople:clone(window._ec.splitPeople)});
   save();closeModal();renderMonth();toast(`${name} adicionado ✓`);
 }
@@ -1013,7 +1055,7 @@ function saveExternal(){
 //  QUICK EXPENSE MODAL
 // ═══════════════════════════════════════════
 function openQuickModal(){
-  if(!isAdmin){toast('Requer modo administrador');return;}
+  if(!isAdmin){return;}
   window._qe={label:'',paidBy:'',amount:0,splitPeople:clone(S.people.map(p=>p.id))};
   const pchecks=S.people.map(p=>`
     <div class="pchk on" id="qp-${p.id}" onclick="togQP('${p.id}')">
@@ -1038,7 +1080,7 @@ function saveQuick(){
   if(!window._qe.label.trim()){toast('Insere uma descrição');return;}
   if(!window._qe.amount){toast('Insere um valor');return;}
   if(!window._qe.splitPeople.length){toast('Seleciona pelo menos uma pessoa');return;}
-  const entry=getEntry(S.ui.year,S.ui.month);
+  const entry=getEntry(_localUI.year,_localUI.month);
   entry.quickExpenses.push({id:uid(),label:window._qe.label.trim(),paidBy:window._qe.paidBy.trim(),amount:window._qe.amount,splitPeople:clone(window._qe.splitPeople)});
   save();closeModal();renderMonth();toast('Despesa adicionada ✓');
 }
@@ -1076,7 +1118,7 @@ function renderExpenses(){
       <span class="eico">${exp.emoji}</span>
       <div class="einfo">
         <div class="ename">${exp.name} ${splitChip(exp)}</div>
-        <div class="emeta">Padrão: ${exp.defaultAmount?fmt(exp.defaultAmount):'—'}</div>
+        <div class="emeta">Padrão: ${exp.defaultAmount?fmt(exp.defaultAmount):'—'}${exp.fixedCost>0?` · Fixo: ${fmt(exp.fixedCost)}`:''}</div>
       </div>
       ${isAdmin?`<div class="ract">
         <button class="ia" onclick="openExpModal('${exp.id}')">✏️</button>
@@ -1132,21 +1174,39 @@ function renderHistory(detId){
         <span class="hexpamt">${fmt(parseFloat(c.amount)||0)}</span>
       </div>`;
     }).join('');
+    const grandTotal=Object.values(h.shares).reduce((a,b)=>a+(b>0?b:0),0);
     el.innerHTML=`
       <div class="detback">
         <button class="backbtn" onclick="renderHistory()">‹</button>
         <div><div class="hmonth">${h.label}</div><div class="hmeta">Guardado ${saved}</div></div>
       </div>
       <div class="rgrid">${cards}</div>
-      <div class="bkcard"><div class="bktitle">Detalhe por despesa · com totais</div>${bkRows}</div>
+      <div class="bkcard">
+        <div class="bktitle">Detalhe por despesa · com totais</div>
+        ${bkRows}
+      </div>
       <div class="card">
         <div class="hsection">Despesas recorrentes</div>
         ${recurringRows||'<p class="tsm tmuted">—</p>'}
-        <div class="htotalrow"><span>Total recorrentes</span><span>${fmt(h.expenses.reduce((a,exp)=>a+(parseFloat(h.entry.amounts?.[exp.id])||0),0))}</span></div>
+        <div class="htotalrow">
+          <span>Total recorrentes</span>
+          <span>${fmt(h.expenses.reduce((a,exp)=>a+(parseFloat(h.entry.amounts?.[exp.id])||0),0))}</span>
+        </div>
       </div>
-      ${quickRows?`<div class="card"><div class="hsection">Despesas pontuais</div>${quickRows}<div class="htotalrow"><span>Total pontuais</span><span>${fmt((h.entry.quickExpenses||[]).reduce((a,q)=>a+(parseFloat(q.amount)||0),0))}</span></div></div>`:''}
-      ${extRows?`<div class="card"><div class="hsection">Contribuições externas</div>${extRows}<div class="htotalrow" style="color:var(--green)"><span>Total créditos</span><span>−${fmt((h.entry.externalContribs||[]).reduce((a,ec)=>a+(parseFloat(ec.amount)||0),0))}</span></div></div>`:''}
-      ${chargeRows?`<div class="card"><div class="hsection">Custos individuais</div>${chargeRows}</div>`:''}
+      ${quickRows?`<div class="card">
+        <div class="hsection">Despesas pontuais</div>
+        ${quickRows}
+        <div class="htotalrow"><span>Total pontuais</span><span>${fmt((h.entry.quickExpenses||[]).reduce((a,q)=>a+(parseFloat(q.amount)||0),0))}</span></div>
+      </div>`:''}
+      ${extRows?`<div class="card">
+        <div class="hsection">Contribuições externas</div>
+        ${extRows}
+        <div class="htotalrow" style="color:var(--green)"><span>Total créditos</span><span>−${fmt((h.entry.externalContribs||[]).reduce((a,ec)=>a+(parseFloat(ec.amount)||0),0))}</span></div>
+      </div>`:''}
+      ${chargeRows?`<div class="card">
+        <div class="hsection">Custos individuais</div>
+        ${chargeRows}
+      </div>`:''}
       ${isAdmin?`<div style="text-align:center;padding:10px 0"><button class="btn bdanger" onclick="delHist('${h.id}')">🗑 Apagar registo</button></div>`:''}
     `;
     return;
@@ -1178,7 +1238,7 @@ function delHist(id){ if(!isAdmin||!confirm('Apagar registo?'))return; S.history
 //  PERSON MODAL
 // ═══════════════════════════════════════════
 function openPersonModal(id){
-  if(!isAdmin){toast('Requer modo administrador');return;}
+  if(!isAdmin){return;}
   const existing=id?byPid(id):null;
   window._ep=clone(existing||{id:null,name:'',color:COLORS[S.people.length%COLORS.length],days:[true,true,true,true,false,false,false]});
   const cswatches=COLORS.map(c=>`<div class="csw${c===window._ep.color?' on':''}" style="background:${c}" onclick="pickPColor('${c}')" data-pc="${c}">${c===window._ep.color?'✓':''}</div>`).join('');
@@ -1207,20 +1267,20 @@ function togPDay(i){
   el.style.borderColor=window._ep.days[i]?window._ep.color:'';
 }
 function savePerson(id){
-  if(!isAdmin){toast('Requer modo administrador');return;}
+  if(!isAdmin){return;}
   const name=document.getElementById('pName').value.trim();
   if(!name){toast('Insere um nome');return;}
   const p={...window._ep,name};
   if(id){const idx=S.people.findIndex(x=>x.id===id);if(idx>=0)S.people[idx]={...p,id};}
   else S.people.push({...p,id:uid()});
-  save();closeModal();renderPeople();if(S.ui.view==='month')renderMonth();
+  save();closeModal();renderPeople();if(_localUI.view==='month')renderMonth();
 }
 
 // ═══════════════════════════════════════════
 //  EXPENSE MODAL
 // ═══════════════════════════════════════════
 function openExpModal(id){
-  if(!isAdmin){toast('Requer modo administrador');return;}
+  if(!isAdmin){return;}
   const existing=id?byEid(id):null;
   window._ee=clone(existing||{id:null,name:'',emoji:'🔥',split:'proportional',equalPeople:null,personalTo:S.people[0]?.id||null,weights:{},defaultAmount:0,fixedCost:0});
   if(!window._ee.equalPeople) window._ee.equalPeople=S.people.map(p=>p.id);
@@ -1284,7 +1344,7 @@ function saveExp(id){
   if(e.split==='equal'&&!e.equalPeople?.length) e.equalPeople=S.people.map(p=>p.id);
   if(id){const idx=S.expenses.findIndex(x=>x.id===id);if(idx>=0)S.expenses[idx]={...e,id};}
   else S.expenses.push({...e,id:uid()});
-  save();closeModal();renderExpenses();if(S.ui.view==='month')renderMonth();
+  save();closeModal();renderExpenses();if(_localUI.view==='month')renderMonth();
 }
 
 // ═══════════════════════════════════════════
@@ -1297,48 +1357,69 @@ let _tt;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2600);}
 
 // ═══════════════════════════════════════════
-//  FIREBASE SYNC (CORRIGIDO)
+//  FIREBASE SYNC — fixed, no loops
 // ═══════════════════════════════════════════
 let _fbSynced = false;
 
+function applyRemoteData(remoteData){
+  // Merge remote data into S, but preserve local UI state
+  if(!remoteData || typeof remoteData !== 'object') return;
+
+  // Guard: set receiving flag so save() doesn't echo back
+  _fbReceiving = true;
+
+  S.people   = remoteData.people   || S.people;
+  S.expenses = remoteData.expenses || S.expenses;
+  S.monthly  = remoteData.monthly  || S.monthly;
+  S.history  = remoteData.history  || S.history;
+
+  // Ensure migrations on remote data
+  S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+
+  // Persist merged state locally
+  const payload = {people:S.people, expenses:S.expenses, monthly:S.monthly, history:S.history};
+  localStorage.setItem('casa_v5', JSON.stringify(payload));
+
+  _fbReceiving = false;
+}
+
+function updateFbStatus(ok){
+  const badge = document.getElementById('fb-status');
+  if(!badge) return;
+  if(ok){
+    badge.textContent='☁️ sync';
+    badge.style.background='#eaf5ee';
+    badge.style.color='#1e7a4a';
+  } else {
+    badge.textContent='📵 offline';
+    badge.style.background='#fdecea';
+    badge.style.color='#b5451b';
+  }
+}
+
 function initFirebase(){
   if(!window._fbWatch){ setTimeout(initFirebase, 100); return; }
-  
+
   window._fbWatch(remoteData => {
-    const badge = document.getElementById('fb-status');
-    
-    if(remoteData && typeof remoteData === 'object'){
-      console.log('📥 Dados recebidos do Firebase');
-      
-      // Marcar que está a sincronizar para evitar loop
-      _isSyncing = true;
-      
-      S = remoteData;
-      if(S.expenses) S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
-      if(!S.ui) S.ui={view:'month',month:new Date().getMonth(),year:new Date().getFullYear()};
-      localStorage.setItem('casa_v4', JSON.stringify(S));
-      
-      // Terminar sincronização
-      setTimeout(() => { _isSyncing = false; }, 100);
-      
-      if(badge){ 
-        badge.textContent='☁️ sync'; 
-        badge.style.background='#eaf5ee'; 
-        badge.style.color='#1e7a4a'; 
-      }
-    }
-    
+    updateFbStatus(true);
+    applyRemoteData(remoteData);
+
     if(!_fbSynced){
+      // First load — render for the first time
       _fbSynced = true;
-      window._fbReady = true;
       document.getElementById('fb-loading').style.display='none';
       updateMlbl();
       renderMonth();
-      console.log('✅ Firebase conectado');
     } else {
-      updateMlbl();
-      const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
-      renders[S.ui?.view||'month']?.();
+      // Subsequent update from another device
+      // Only re-render if admin is NOT actively editing an input
+      const active = document.activeElement;
+      const isEditing = active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA');
+      if(!isEditing){
+        updateMlbl();
+        const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
+        renders[_localUI.view]?.();
+      }
     }
   });
 }
@@ -1349,15 +1430,15 @@ function initFirebase(){
 updateMlbl();
 document.getElementById('fb-loading').style.display='flex';
 
+// Fallback: if Firebase doesn't connect in 5s, show local data
 setTimeout(()=>{
   if(!_fbSynced){
-    console.warn('⚠️ Firebase timeout - a usar dados locais');
     document.getElementById('fb-loading').style.display='none';
-    window._fbReady = true;
+    updateFbStatus(false);
     renderMonth();
-    toast('⚠️ A usar dados locais (Firebase offline)');
+    toast('⚠️ Firebase offline — a usar dados locais');
   }
-}, 4000);
+}, 5000);
 
 initFirebase();
 </script>
