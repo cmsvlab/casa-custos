@@ -556,7 +556,7 @@ let _localUI = {
 function loadLocalUI(){
   try {
     const stored = localStorage.getItem('casa_ui');
-    if(stored) _localUI = JSON.parse(stored);
+    if(stored) { const p=JSON.parse(stored); _localUI.view=p.view||'month'; _localUI.month=p.month??_localUI.month; _localUI.year=p.year??_localUI.year; }
   } catch(e){}
 }
 
@@ -564,15 +564,17 @@ function saveLocalUI(){
   localStorage.setItem('casa_ui', JSON.stringify(_localUI));
 }
 
-// S never contains .ui anymore — always use _localUI
 let S = (() => {
   try {
     const d = localStorage.getItem('casa_v5');
     if(d){
       const parsed = JSON.parse(d);
       if(parsed.expenses) parsed.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
-      // Strip ui if it crept in from an older version
       delete parsed.ui;
+      if(!parsed.people)   parsed.people   = clone(DEFAULTS.people);
+      if(!parsed.expenses) parsed.expenses = clone(DEFAULTS.expenses);
+      if(!parsed.monthly)  parsed.monthly  = {};
+      if(!parsed.history)  parsed.history  = [];
       return parsed;
     }
     // Migrate from v4
@@ -586,17 +588,10 @@ let S = (() => {
       return old;
     }
     return clone(DEFAULTS);
-  } catch{ return clone(DEFAULTS); }
+  } catch(err){ console.error('State load error:', err); return clone(DEFAULTS); }
 })();
 
 loadLocalUI();
-
-// ── Convenience proxy so old code still works with S.ui ──
-Object.defineProperty(S, 'ui', {
-  get(){ return _localUI; },
-  set(v){ Object.assign(_localUI, v); saveLocalUI(); },
-  configurable: true, enumerable: false
-});
 
 // ═══════════════════════════════════════════
 //  SAVE — local + Firebase, no loop
@@ -819,6 +814,9 @@ function buildBreakdownHTML(people, res, showTotCol){
 //  RENDER: MÊS
 // ═══════════════════════════════════════════
 function renderMonth(){
+  try { _renderMonth(); } catch(err){ console.error('renderMonth error:', err); document.getElementById('vMonth').innerHTML=`<div class="empty"><span class="emico">⚠️</span><p class="emtxt">Erro ao carregar o mês.<br><small style="font-size:.7rem;opacity:.6">${err.message}</small></p></div>`; }
+}
+function _renderMonth(){
   const y=_localUI.year, m=_localUI.month;
   const entry=getEntry(y,m);
   const res=calc(y,m);
@@ -971,7 +969,7 @@ function renderMonth(){
     ${adminSave}
     <div style="height:12px"></div>
   `;
-}
+} // end _renderMonth
 
 function togSec(id){
   document.getElementById('tog-'+id).classList.toggle('open');
@@ -1359,28 +1357,22 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 // ═══════════════════════════════════════════
 //  FIREBASE SYNC — fixed, no loops
 // ═══════════════════════════════════════════
-let _fbSynced = false;
+let _fbSynced    = false;
+let _fbReceiving = false; // prevents save() echoing back to Firebase
 
 function applyRemoteData(remoteData){
-  // Merge remote data into S, but preserve local UI state
   if(!remoteData || typeof remoteData !== 'object') return;
-
-  // Guard: set receiving flag so save() doesn't echo back
-  _fbReceiving = true;
-
-  S.people   = remoteData.people   || S.people;
-  S.expenses = remoteData.expenses || S.expenses;
-  S.monthly  = remoteData.monthly  || S.monthly;
-  S.history  = remoteData.history  || S.history;
-
-  // Ensure migrations on remote data
-  S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
-
-  // Persist merged state locally
-  const payload = {people:S.people, expenses:S.expenses, monthly:S.monthly, history:S.history};
-  localStorage.setItem('casa_v5', JSON.stringify(payload));
-
-  _fbReceiving = false;
+  try {
+    _fbReceiving = true;
+    if(Array.isArray(remoteData.people)   && remoteData.people.length)   S.people   = remoteData.people;
+    if(Array.isArray(remoteData.expenses) && remoteData.expenses.length) S.expenses = remoteData.expenses;
+    if(remoteData.monthly  && typeof remoteData.monthly  === 'object')   S.monthly  = remoteData.monthly;
+    if(Array.isArray(remoteData.history))                                 S.history  = remoteData.history;
+    S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+    const payload = {people:S.people, expenses:S.expenses, monthly:S.monthly, history:S.history};
+    localStorage.setItem('casa_v5', JSON.stringify(payload));
+  } catch(err){ console.error('applyRemoteData error:', err); }
+  finally { _fbReceiving = false; }
 }
 
 function updateFbStatus(ok){
