@@ -436,7 +436,6 @@ function toggleAdmin(){
 function logout(){
   isAdmin=false;
   applyAdminUI();
-  // If on a admin-only view, go back to month
   if(S.ui.view==='people') showView('month');
   toast('Sessão de administrador terminada');
 }
@@ -464,7 +463,6 @@ function applyAdminUI(){
     lockBtn.textContent='🔒';
     if(pill) pill.style.display=(S.ui.view==='expenses')?'flex':'none';
   }
-  // Re-render current view to show/hide admin controls
   const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
   renders[S.ui.view]?.();
 }
@@ -550,7 +548,6 @@ let S = (() => {
     const d4 = localStorage.getItem('casa_v4');
     if(d4) {
       const parsed = JSON.parse(d4);
-      // Migrate: ensure fixedCost exists on all expenses
       if(parsed.expenses) parsed.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
       return parsed;
     }
@@ -566,15 +563,20 @@ let S = (() => {
   } catch{ return clone(DEFAULTS); }
 })();
 
-// Initialize window._fbReady
-window._fbReady = false;
+// Variável para controlar se está a sincronizar do Firebase
+let _isSyncing = false;
 
 let save = () => {
   localStorage.setItem('casa_v4', JSON.stringify(S));
-  if(window._fbSet && window._fbReady) {
-    window._fbSet(S).catch(err => {
-      console.warn('Firebase save error:', err);
-      toast('⚠️ Erro ao guardar no Firebase');
+  
+  // Só tenta gravar no Firebase se estiver pronto e não estiver a sincronizar
+  if(window._fbSet && window._fbReady && !_isSyncing) {
+    console.log('💾 A guardar no Firebase...');
+    window._fbSet(S).then(() => {
+      console.log('✅ Guardado no Firebase');
+    }).catch(err => {
+      console.error('❌ Erro Firebase:', err);
+      toast('⚠️ Erro ao sincronizar (a usar dados locais)');
     });
   }
 };
@@ -607,7 +609,6 @@ function calc(y,m){
   return calcFrom(S.people, S.expenses, getEntry(y,m));
 }
 
-// Generic calc that works on any people/expenses/entry (for history replay)
 function calcFrom(people, expenses, entry){
   const baseDays  = {};
   const totalDays = {};
@@ -628,7 +629,6 @@ function calcFrom(people, expenses, entry){
       ? Math.min(parseFloat(exp.fixedCost)||0, amount) : 0;
     const variablePart = amount - fixedCost;
     if(exp.split==='proportional'){
-      // Fixed part: split equally between all people (÷2)
       const fixedEach = fixedCost / (people.length || 1);
       people.forEach(p=>{
         const varShare = variablePart * (totalDays[p.id] / grandDays);
@@ -711,7 +711,6 @@ function splitChip(exp, people){
 //  VIEW NAVIGATION
 // ═══════════════════════════════════════════
 function showView(name){
-  // Block non-admin from people view
   if(name==='people' && !isAdmin){ toast('Requer acesso de administrador'); return; }
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('on'));
   document.querySelectorAll('.nv').forEach(el=>el.classList.remove('on'));
@@ -720,7 +719,6 @@ function showView(name){
   if(nvEl) nvEl.classList.add('on');
   S.ui.view=name;
   save();
-  // Show/hide readonly pill on expenses
   const pill=document.getElementById('expReadonlyPill');
   if(pill) pill.style.display=(name==='expenses'&&!isAdmin)?'flex':'none';
   ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[name]?.();
@@ -740,7 +738,7 @@ function updateMlbl(){
 }
 
 // ═══════════════════════════════════════════
-//  BREAKDOWN TABLE BUILDER (shared by month & history)
+//  BREAKDOWN TABLE BUILDER
 // ═══════════════════════════════════════════
 function buildBreakdownHTML(people, res, showTotCol){
   const headVals=people.map(p=>`<span class="bkv" style="color:${lighten(p.color,.5)}">${p.name}</span>`).join('');
@@ -785,7 +783,6 @@ function renderMonth(){
   const res=calc(y,m);
   const el=document.getElementById('vMonth');
 
-  // Result cards
   const rcards = S.people.map(p=>{
     const total=res.shares[p.id]||0;
     const extra=entry.extraDays[p.id]||0;
@@ -799,7 +796,6 @@ function renderMonth(){
     </div>`;
   }).join('');
 
-  // External banner
   let extBanner = '';
   if((entry.externalContribs||[]).length){
     const rows = entry.externalContribs.map(ec=>`
@@ -821,10 +817,8 @@ function renderMonth(){
     </div>`;
   }
 
-  // Breakdown with totals column
   const bkRows = buildBreakdownHTML(S.people, res, true);
 
-  // Amount rows (admin editable)
   const amtRows=S.expenses.map(exp=>`
     <div class="arow">
       <span class="aico">${exp.emoji}</span>
@@ -837,7 +831,6 @@ function renderMonth(){
       </div>
     </div>`).join('');
 
-  // Extra per person (admin only)
   const xpBlocks=S.people.map(p=>{
     const extraD=entry.extraDays[p.id]||0;
     const charges=(entry.extraCharges||[]).filter(c=>c.personId===p.id);
@@ -866,7 +859,6 @@ function renderMonth(){
     </div>`;
   }).join('');
 
-  // Quick expense list
   const qrows=(entry.quickExpenses||[]).map(q=>{
     const who=q.splitPeople?.length?q.splitPeople:S.people.map(p=>p.id);
     return `<div class="qrow">
@@ -882,7 +874,6 @@ function renderMonth(){
     </div>`;
   }).join('');
 
-  // Admin-only FABs and sections
   const adminFabs = isAdmin ? `
     <button class="fab fab-dark" onclick="openQuickModal()"><span>⚡</span> Despesa pontual</button>
     <button class="fab fab-green" onclick="openExternalModal()"><span>✅</span> Contribuição externa</button>` : '';
@@ -1053,7 +1044,7 @@ function saveQuick(){
 }
 
 // ═══════════════════════════════════════════
-//  RENDER: PESSOAS (admin only)
+//  RENDER: PESSOAS
 // ═══════════════════════════════════════════
 function renderPeople(){
   const el=document.getElementById('vPeople');
@@ -1103,26 +1094,18 @@ function renderHistory(detId){
   if(detId){
     const h=S.history.find(x=>x.id===detId); if(!h){renderHistory();return;}
     const saved=new Date(h.savedAt).toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric'});
-
-    // Reconstruct calc from snapshot
     const res = h.breakdown
       ? { shares:h.shares, credits:h.credits||{}, breakdown:h.breakdown,
           baseDays:Object.fromEntries(h.people.map(p=>[p.id,personDays(p)])),
           totalDays:Object.fromEntries(h.people.map(p=>[p.id,(personDays(p))+(h.entry.extraDays?.[p.id]||0)])) }
       : calcFrom(h.people, h.expenses, h.entry);
-
-    // Summary cards
     const cards=h.people.map(p=>`
       <div class="rcard" style="background:${p.color}">
         <div class="rname">${p.name}</div>
         <div class="ramt">${fmt(Math.max(0,h.shares[p.id]||0))}</div>
         <div class="rmeta">${Math.round(res.totalDays?.[p.id]||0)} dias${(h.entry.extraDays?.[p.id])?` (+${h.entry.extraDays[p.id]} extra)`:''}${(res.credits?.[p.id]||0)>0?`<br>— ${fmt(res.credits[p.id])} crédito`:''}</div>
       </div>`).join('');
-
-    // Full breakdown table with totals
     const bkRows = buildBreakdownHTML(h.people, res, true);
-
-    // Recurring expenses detail
     const recurringRows = h.expenses.map(exp=>{
       const amt=parseFloat(h.entry.amounts?.[exp.id])||0;
       return `<div class="hexprow">
@@ -1130,8 +1113,6 @@ function renderHistory(detId){
         <span class="hexpamt">${fmt(amt)}</span>
       </div>`;
     }).join('');
-
-    // Quick expenses
     const quickRows=(h.entry.quickExpenses||[]).map(q=>{
       const who=(q.splitPeople?.length?q.splitPeople:h.people.map(p=>p.id)).map(id=>h.people.find(p=>p.id===id)?.name||'?').join(' + ');
       return `<div class="hexprow">
@@ -1139,15 +1120,11 @@ function renderHistory(detId){
         <span class="hexpamt">${fmt(parseFloat(q.amount)||0)}</span>
       </div>`;
     }).join('');
-
-    // External contributions
     const extRows=(h.entry.externalContribs||[]).map(ec=>`
       <div class="hexprow">
         <span class="hexpname">✅ <span>${ec.name||'Externo'}</span>${ec.desc?`<span class="chip cext">${ec.desc}</span>`:''}</span>
         <span class="hexpamt" style="color:var(--green)">−${fmt(parseFloat(ec.amount)||0)}</span>
       </div>`).join('');
-
-    // Extra charges
     const chargeRows=(h.entry.extraCharges||[]).map(c=>{
       const person=h.people.find(p=>p.id===c.personId);
       return `<div class="hexprow">
@@ -1155,53 +1132,25 @@ function renderHistory(detId){
         <span class="hexpamt">${fmt(parseFloat(c.amount)||0)}</span>
       </div>`;
     }).join('');
-
-    const grandTotal=Object.values(h.shares).reduce((a,b)=>a+(b>0?b:0),0);
-
     el.innerHTML=`
       <div class="detback">
         <button class="backbtn" onclick="renderHistory()">‹</button>
         <div><div class="hmonth">${h.label}</div><div class="hmeta">Guardado ${saved}</div></div>
       </div>
-
       <div class="rgrid">${cards}</div>
-
-      <div class="bkcard">
-        <div class="bktitle">Detalhe por despesa · com totais</div>
-        ${bkRows}
-      </div>
-
+      <div class="bkcard"><div class="bktitle">Detalhe por despesa · com totais</div>${bkRows}</div>
       <div class="card">
         <div class="hsection">Despesas recorrentes</div>
         ${recurringRows||'<p class="tsm tmuted">—</p>'}
-        <div class="htotalrow">
-          <span>Total recorrentes</span>
-          <span>${fmt(h.expenses.reduce((a,exp)=>a+(parseFloat(h.entry.amounts?.[exp.id])||0),0))}</span>
-        </div>
+        <div class="htotalrow"><span>Total recorrentes</span><span>${fmt(h.expenses.reduce((a,exp)=>a+(parseFloat(h.entry.amounts?.[exp.id])||0),0))}</span></div>
       </div>
-
-      ${quickRows?`<div class="card">
-        <div class="hsection">Despesas pontuais</div>
-        ${quickRows}
-        <div class="htotalrow"><span>Total pontuais</span><span>${fmt((h.entry.quickExpenses||[]).reduce((a,q)=>a+(parseFloat(q.amount)||0),0))}</span></div>
-      </div>`:''}
-
-      ${extRows?`<div class="card">
-        <div class="hsection">Contribuições externas</div>
-        ${extRows}
-        <div class="htotalrow" style="color:var(--green)"><span>Total créditos</span><span>−${fmt((h.entry.externalContribs||[]).reduce((a,ec)=>a+(parseFloat(ec.amount)||0),0))}</span></div>
-      </div>`:''}
-
-      ${chargeRows?`<div class="card">
-        <div class="hsection">Custos individuais</div>
-        ${chargeRows}
-      </div>`:''}
-
+      ${quickRows?`<div class="card"><div class="hsection">Despesas pontuais</div>${quickRows}<div class="htotalrow"><span>Total pontuais</span><span>${fmt((h.entry.quickExpenses||[]).reduce((a,q)=>a+(parseFloat(q.amount)||0),0))}</span></div></div>`:''}
+      ${extRows?`<div class="card"><div class="hsection">Contribuições externas</div>${extRows}<div class="htotalrow" style="color:var(--green)"><span>Total créditos</span><span>−${fmt((h.entry.externalContribs||[]).reduce((a,ec)=>a+(parseFloat(ec.amount)||0),0))}</span></div></div>`:''}
+      ${chargeRows?`<div class="card"><div class="hsection">Custos individuais</div>${chargeRows}</div>`:''}
       ${isAdmin?`<div style="text-align:center;padding:10px 0"><button class="btn bdanger" onclick="delHist('${h.id}')">🗑 Apagar registo</button></div>`:''}
     `;
     return;
   }
-
   if(!S.history.length){
     el.innerHTML=`<div class="empty"><span class="emico">📭</span><p class="emtxt">Nenhum mês guardado ainda.<br>Preenche as contas e carrega em<br><strong>Guardar</strong> (modo admin).</p></div>`;return;
   }
@@ -1211,7 +1160,6 @@ function renderHistory(detId){
     const numExps=h.expenses?.length||0;
     const numQuick=(h.entry?.quickExpenses||[]).length;
     const numExt=(h.entry?.externalContribs||[]).length;
-    const totalRec=h.expenses?.reduce((a,exp)=>a+(parseFloat(h.entry?.amounts?.[exp.id])||0),0)||0;
     return `<div class="hitem" onclick="renderHistory('${h.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="hmonth">${h.label}</div><div class="hmeta">${d}</div>
@@ -1224,7 +1172,6 @@ function renderHistory(detId){
     </div>`;
   }).join('');
 }
-
 function delHist(id){ if(!isAdmin||!confirm('Apagar registo?'))return; S.history=S.history.filter(h=>h.id!==id); save();renderHistory(); }
 
 // ═══════════════════════════════════════════
@@ -1341,46 +1288,53 @@ function saveExp(id){
 }
 
 // ═══════════════════════════════════════════
-//  MODAL
+//  MODAL & TOAST
 // ═══════════════════════════════════════════
 function openModal(html){document.getElementById('mbox').innerHTML=html;document.getElementById('mbg').classList.remove('off');}
 function closeModal(){document.getElementById('mbg').classList.add('off');}
 function bgClose(e){if(e.target.id==='mbg')closeModal();}
-
-// ═══════════════════════════════════════════
-//  TOAST
-// ═══════════════════════════════════════════
 let _tt;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2600);}
 
 // ═══════════════════════════════════════════
-//  FIREBASE SYNC
+//  FIREBASE SYNC (CORRIGIDO)
 // ═══════════════════════════════════════════
 let _fbSynced = false;
 
 function initFirebase(){
   if(!window._fbWatch){ setTimeout(initFirebase, 100); return; }
+  
   window._fbWatch(remoteData => {
-    // Update status badge
     const badge = document.getElementById('fb-status');
-    if(badge){ 
-      badge.textContent='☁️ sync'; 
-      badge.style.background='#eaf5ee'; 
-      badge.style.color='#1e7a4a'; 
-    }
-
+    
     if(remoteData && typeof remoteData === 'object'){
+      console.log('📥 Dados recebidos do Firebase');
+      
+      // Marcar que está a sincronizar para evitar loop
+      _isSyncing = true;
+      
       S = remoteData;
       if(S.expenses) S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
       if(!S.ui) S.ui={view:'month',month:new Date().getMonth(),year:new Date().getFullYear()};
       localStorage.setItem('casa_v4', JSON.stringify(S));
+      
+      // Terminar sincronização
+      setTimeout(() => { _isSyncing = false; }, 100);
+      
+      if(badge){ 
+        badge.textContent='☁️ sync'; 
+        badge.style.background='#eaf5ee'; 
+        badge.style.color='#1e7a4a'; 
+      }
     }
+    
     if(!_fbSynced){
       _fbSynced = true;
       window._fbReady = true;
       document.getElementById('fb-loading').style.display='none';
       updateMlbl();
       renderMonth();
+      console.log('✅ Firebase conectado');
     } else {
       updateMlbl();
       const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
@@ -1394,15 +1348,17 @@ function initFirebase(){
 // ═══════════════════════════════════════════
 updateMlbl();
 document.getElementById('fb-loading').style.display='flex';
-// Fallback: if Firebase doesn't connect in 4s, show local data
+
 setTimeout(()=>{
   if(!_fbSynced){
+    console.warn('⚠️ Firebase timeout - a usar dados locais');
     document.getElementById('fb-loading').style.display='none';
     window._fbReady = true;
     renderMonth();
     toast('⚠️ A usar dados locais (Firebase offline)');
   }
 }, 4000);
+
 initFirebase();
 </script>
 </body>
