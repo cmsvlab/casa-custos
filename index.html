@@ -566,9 +566,17 @@ let S = (() => {
   } catch{ return clone(DEFAULTS); }
 })();
 
+// Initialize window._fbReady
+window._fbReady = false;
+
 let save = () => {
   localStorage.setItem('casa_v4', JSON.stringify(S));
-  if(window._fbSet) window._fbSet(S).catch(err => console.warn('Firebase save error:', err));
+  if(window._fbSet && window._fbReady) {
+    window._fbSet(S).catch(err => {
+      console.warn('Firebase save error:', err);
+      toast('⚠️ Erro ao guardar no Firebase');
+    });
+  }
 };
 
 // ═══════════════════════════════════════════
@@ -711,14 +719,25 @@ function showView(name){
   const nvEl=document.getElementById('nv-'+name);
   if(nvEl) nvEl.classList.add('on');
   S.ui.view=name;
+  save();
   // Show/hide readonly pill on expenses
   const pill=document.getElementById('expReadonlyPill');
   if(pill) pill.style.display=(name==='expenses'&&!isAdmin)?'flex':'none';
   ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[name]?.();
 }
 
-function chMonth(d){ S.ui.month+=d; if(S.ui.month>11){S.ui.month=0;S.ui.year++;} if(S.ui.month<0){S.ui.month=11;S.ui.year--;} save(); updateMlbl(); if(S.ui.view==='month') renderMonth(); }
-function updateMlbl(){ document.getElementById('mlbl').textContent=fmtM(S.ui.year,S.ui.month); }
+function chMonth(d){ 
+  S.ui.month+=d; 
+  if(S.ui.month>11){S.ui.month=0;S.ui.year++;} 
+  if(S.ui.month<0){S.ui.month=11;S.ui.year--;} 
+  save(); 
+  updateMlbl(); 
+  if(S.ui.view==='month') renderMonth(); 
+}
+
+function updateMlbl(){ 
+  document.getElementById('mlbl').textContent=fmtM(S.ui.year,S.ui.month); 
+}
 
 // ═══════════════════════════════════════════
 //  BREAKDOWN TABLE BUILDER (shared by month & history)
@@ -933,14 +952,14 @@ function setFixedCost(eid,v){
   const exp = S.expenses.find(e=>e.id===eid);
   if(exp){ exp.fixedCost = parseFloat(v)||0; save(); renderMonth(); }
 }
-function setAmt(eid,v)  { getEntry(S.ui.year,S.ui.month).amounts[eid]=parseFloat(v)||0; save(); renderMonth(); }
-function chExtra(pid,d) { const e=getEntry(S.ui.year,S.ui.month); e.extraDays[pid]=Math.max(0,(e.extraDays[pid]||0)+d); save(); renderMonth(); }
-function setExtra(pid,v){ const e=getEntry(S.ui.year,S.ui.month); e.extraDays[pid]=Math.max(0,parseInt(v)||0); save(); renderMonth(); }
-function addCharge(pid) { getEntry(S.ui.year,S.ui.month).extraCharges.push({id:uid(),personId:pid,label:'',amount:0}); save(); renderMonth(); }
-function updCharge(cid,f,v){ const e=getEntry(S.ui.year,S.ui.month),c=e.extraCharges.find(x=>x.id===cid); if(c){c[f]=f==='amount'?parseFloat(v)||0:v; save(); renderMonth();} }
-function delCharge(cid){ const e=getEntry(S.ui.year,S.ui.month); e.extraCharges=e.extraCharges.filter(x=>x.id!==cid); save(); renderMonth(); }
-function delQuick(qid)  { const e=getEntry(S.ui.year,S.ui.month); e.quickExpenses=e.quickExpenses.filter(x=>x.id!==qid); save(); renderMonth(); }
-function delExternal(ecid){ const e=getEntry(S.ui.year,S.ui.month); e.externalContribs=e.externalContribs.filter(x=>x.id!==ecid); save(); renderMonth(); }
+function setAmt(eid,v)  { if(!isAdmin) return; getEntry(S.ui.year,S.ui.month).amounts[eid]=parseFloat(v)||0; save(); renderMonth(); }
+function chExtra(pid,d) { if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.extraDays[pid]=Math.max(0,(e.extraDays[pid]||0)+d); save(); renderMonth(); }
+function setExtra(pid,v){ if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.extraDays[pid]=Math.max(0,parseInt(v)||0); save(); renderMonth(); }
+function addCharge(pid) { if(!isAdmin) return; getEntry(S.ui.year,S.ui.month).extraCharges.push({id:uid(),personId:pid,label:'',amount:0}); save(); renderMonth(); }
+function updCharge(cid,f,v){ if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month),c=e.extraCharges.find(x=>x.id===cid); if(c){c[f]=f==='amount'?parseFloat(v)||0:v; save(); renderMonth();} }
+function delCharge(cid){ if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.extraCharges=e.extraCharges.filter(x=>x.id!==cid); save(); renderMonth(); }
+function delQuick(qid)  { if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.quickExpenses=e.quickExpenses.filter(x=>x.id!==qid); save(); renderMonth(); }
+function delExternal(ecid){ if(!isAdmin) return; const e=getEntry(S.ui.year,S.ui.month); e.externalContribs=e.externalContribs.filter(x=>x.id!==ecid); save(); renderMonth(); }
 
 function saveMonth(){
   if(!isAdmin){toast('Requer administrador');return;}
@@ -956,7 +975,7 @@ function saveMonth(){
 //  EXTERNAL CONTRIBUTION MODAL
 // ═══════════════════════════════════════════
 function openExternalModal(){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   window._ec={name:'',desc:'',amount:0,splitMode:'proportional',splitPeople:clone(S.people.map(p=>p.id))};
   const pchecks=S.people.map(p=>`
     <div class="pchk on" id="ecp-${p.id}" onclick="togECP('${p.id}')">
@@ -1003,7 +1022,7 @@ function saveExternal(){
 //  QUICK EXPENSE MODAL
 // ═══════════════════════════════════════════
 function openQuickModal(){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   window._qe={label:'',paidBy:'',amount:0,splitPeople:clone(S.people.map(p=>p.id))};
   const pchecks=S.people.map(p=>`
     <div class="pchk on" id="qp-${p.id}" onclick="togQP('${p.id}')">
@@ -1212,7 +1231,7 @@ function delHist(id){ if(!isAdmin||!confirm('Apagar registo?'))return; S.history
 //  PERSON MODAL
 // ═══════════════════════════════════════════
 function openPersonModal(id){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   const existing=id?byPid(id):null;
   window._ep=clone(existing||{id:null,name:'',color:COLORS[S.people.length%COLORS.length],days:[true,true,true,true,false,false,false]});
   const cswatches=COLORS.map(c=>`<div class="csw${c===window._ep.color?' on':''}" style="background:${c}" onclick="pickPColor('${c}')" data-pc="${c}">${c===window._ep.color?'✓':''}</div>`).join('');
@@ -1241,7 +1260,7 @@ function togPDay(i){
   el.style.borderColor=window._ep.days[i]?window._ep.color:'';
 }
 function savePerson(id){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   const name=document.getElementById('pName').value.trim();
   if(!name){toast('Insere um nome');return;}
   const p={...window._ep,name};
@@ -1254,7 +1273,7 @@ function savePerson(id){
 //  EXPENSE MODAL
 // ═══════════════════════════════════════════
 function openExpModal(id){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   const existing=id?byEid(id):null;
   window._ee=clone(existing||{id:null,name:'',emoji:'🔥',split:'proportional',equalPeople:null,personalTo:S.people[0]?.id||null,weights:{},defaultAmount:0,fixedCost:0});
   if(!window._ee.equalPeople) window._ee.equalPeople=S.people.map(p=>p.id);
@@ -1307,7 +1326,7 @@ function togEqP(pid){
   el.querySelector('.pchbox').textContent=ep.includes(pid)?'✓':'';
 }
 function saveExp(id){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   const name=document.getElementById('eName').value.trim();
   if(!name){toast('Insere um nome');return;}
   const e={...window._ee,name};
@@ -1335,9 +1354,6 @@ let _tt;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2600);}
 
 // ═══════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════
-// ═══════════════════════════════════════════
 //  FIREBASE SYNC
 // ═══════════════════════════════════════════
 let _fbSynced = false;
@@ -1347,7 +1363,11 @@ function initFirebase(){
   window._fbWatch(remoteData => {
     // Update status badge
     const badge = document.getElementById('fb-status');
-    if(badge){ badge.textContent='☁️ sync'; badge.style.background='#eaf5ee'; badge.style.color='#1e7a4a'; }
+    if(badge){ 
+      badge.textContent='☁️ sync'; 
+      badge.style.background='#eaf5ee'; 
+      badge.style.color='#1e7a4a'; 
+    }
 
     if(remoteData && typeof remoteData === 'object'){
       S = remoteData;
@@ -1357,6 +1377,7 @@ function initFirebase(){
     }
     if(!_fbSynced){
       _fbSynced = true;
+      window._fbReady = true;
       document.getElementById('fb-loading').style.display='none';
       updateMlbl();
       renderMonth();
@@ -1368,13 +1389,18 @@ function initFirebase(){
   });
 }
 
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
 updateMlbl();
 document.getElementById('fb-loading').style.display='flex';
 // Fallback: if Firebase doesn't connect in 4s, show local data
 setTimeout(()=>{
   if(!_fbSynced){
     document.getElementById('fb-loading').style.display='none';
+    window._fbReady = true;
     renderMonth();
+    toast('⚠️ A usar dados locais (Firebase offline)');
   }
 }, 4000);
 initFirebase();
