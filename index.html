@@ -1314,6 +1314,14 @@ function setFbStatus(ok){
   b.style.color = ok ? '#1e7a4a' : '#b5451b';
 }
 
+// ─── Firebase helper: converts Firebase objects-as-arrays back to real arrays ──
+function toArr(val){
+  if(!val) return [];
+  if(Array.isArray(val)) return val;
+  // Firebase converts arrays to {0:{...}, 1:{...}} objects
+  return Object.keys(val).sort((a,b)=>Number(a)-Number(b)).map(k=>val[k]);
+}
+
 function applyRemoteData(remote){
   // null means Firebase DB is empty — push our local data up
   if(remote === null){
@@ -1327,11 +1335,35 @@ function applyRemoteData(remote){
   if(!remote || typeof remote !== 'object') return;
   try{
     _fbReceiving = true;
-    if(Array.isArray(remote.people)   && remote.people.length)   S.people   = remote.people;
-    if(Array.isArray(remote.expenses) && remote.expenses.length) S.expenses = remote.expenses;
-    if(remote.monthly  && typeof remote.monthly  ==='object')    S.monthly  = remote.monthly;
-    if(Array.isArray(remote.history))                             S.history  = remote.history;
-    S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+    // Convert Firebase object-arrays back to real JS arrays
+    const people   = toArr(remote.people);
+    const expenses = toArr(remote.expenses);
+    const history  = toArr(remote.history);
+    const monthly  = (remote.monthly && typeof remote.monthly === 'object') ? remote.monthly : {};
+
+    if(people.length)   S.people   = people;
+    if(expenses.length) S.expenses = expenses;
+    S.monthly  = monthly;
+    S.history  = history;
+
+    // Also fix any nested arrays inside monthly entries
+    Object.values(S.monthly).forEach(entry => {
+      if(entry.extraCharges  && !Array.isArray(entry.extraCharges))  entry.extraCharges  = toArr(entry.extraCharges);
+      if(entry.quickExpenses && !Array.isArray(entry.quickExpenses)) entry.quickExpenses = toArr(entry.quickExpenses);
+      if(entry.externalContribs && !Array.isArray(entry.externalContribs)) entry.externalContribs = toArr(entry.externalContribs);
+    });
+
+    // Also fix arrays inside expenses
+    S.expenses.forEach(e=>{
+      if(e.fixedCost===undefined) e.fixedCost=0;
+      if(e.equalPeople && !Array.isArray(e.equalPeople)) e.equalPeople = toArr(e.equalPeople);
+    });
+
+    // Fix arrays inside people (days array)
+    S.people.forEach(p=>{
+      if(p.days && !Array.isArray(p.days)) p.days = toArr(p.days);
+    });
+
     const payload={people:S.people,expenses:S.expenses,monthly:S.monthly,history:S.history};
     try{ localStorage.setItem('casa_v5', JSON.stringify(payload)); }catch(e){}
   }catch(e){ console.error('applyRemoteData error:',e); }
