@@ -18,15 +18,14 @@ const firebaseConfig = {
   appId: "1:329846979344:web:24ff6789c4ea5d8fcac395"
 };
 try {
-  const app = initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
+  const app  = initializeApp(firebaseConfig);
+  const db   = getDatabase(app);
   const ROOT = ref(db, 'casa');
   window._fbSet   = (data) => set(ROOT, JSON.parse(JSON.stringify(data)));
-  window._fbWatch = (cb)   => onValue(ROOT, snap => cb(snap.val()), err => { console.error('Firebase read error:', err); window._fbError = err.message; });
-  console.log('Firebase module loaded OK');
+  window._fbWatch = (cb, onErr) => onValue(ROOT, snap => cb(snap.val()), err => { if(onErr) onErr(err); });
 } catch(e) {
-  console.error('Firebase init failed:', e);
-  window._fbError = e.message;
+  window._fbInitError = e.message;
+  console.error('Firebase init error:', e);
 }
 </script>
 <style>
@@ -345,10 +344,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .info-pill{display:flex;align-items:flex-start;gap:8px;background:var(--gold-bg);border:1px solid #e8d090;border-radius:10px;padding:10px 12px;font-size:.78rem;color:var(--gold);line-height:1.5;margin-bottom:12px}
 .readonly-pill{display:flex;align-items:center;gap:8px;background:var(--admin-bg);border:1px solid #c5bce8;border-radius:10px;padding:8px 12px;font-size:.75rem;color:var(--admin);margin-bottom:12px}
 
-/* ─── FIREBASE LOADING ────────────────────────────── */
-@keyframes fbload{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}
-#fb-loading{display:none;position:fixed;inset:0;z-index:500;background:rgba(250,246,240,.97);flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif}
-
 @media(min-width:480px){
   main{max-width:480px;margin-left:auto;margin-right:auto}
   #nav{position:fixed;max-width:480px;left:50%;transform:translateX(-50%);right:auto}
@@ -362,7 +357,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <header id="hdr">
   <div class="hdr-row">
     <div class="wordmark">casa<em>.</em><span class="admin-badge">admin</span></div>
-    <div id="fb-status" style="font-size:.62rem;font-weight:600;padding:2px 7px;border-radius:20px;background:#e8e0d6;color:#8c8078;letter-spacing:.4px;transition:all .4s">⏳ a ligar</div>
+    <div id="fb-status" style="font-size:.62rem;font-weight:600;padding:2px 7px;border-radius:20px;background:#e8e0d6;color:#8c8078;letter-spacing:.4px">⏳ a ligar</div>
     <div class="hdr-acts">
       <button class="ia admin-only-flex" id="btn-people" onclick="showView('people')" title="Pessoas" style="width:32px;height:32px;font-size:.9rem">👥</button>
       <button class="ia admin-only-flex" id="btn-exps" onclick="showView('expenses')" title="Despesas" style="width:32px;height:32px;font-size:.9rem">📋</button>
@@ -377,13 +372,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 </header>
 
 <main id="main">
+  <!-- MÊS -->
   <div class="view on" id="view-month"><div id="vMonth"></div></div>
+  <!-- PESSOAS (admin only) -->
   <div class="view" id="view-people">
     <div class="card">
       <div class="clbl">Pessoas<button class="btn bghost admin-only-el" style="padding:5px 11px;font-size:.76rem" onclick="openPersonModal()">+ Adicionar</button></div>
       <div id="vPeople"></div>
     </div>
   </div>
+  <!-- DESPESAS -->
   <div class="view" id="view-expenses">
     <div id="expReadonlyPill" class="readonly-pill" style="display:none">🔒 Só de leitura — entra em modo administrador para editar</div>
     <div class="card">
@@ -392,6 +390,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     </div>
     <p class="tsm tmuted" style="text-align:center;line-height:1.5;padding:4px 0">Valores predefinidos · Ajusta o real em cada mês</p>
   </div>
+  <!-- HISTÓRICO -->
   <div class="view" id="view-history"><div id="vHistory"></div></div>
 </main>
 
@@ -404,15 +403,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 <div id="mbg" class="off" onclick="bgClose(event)"><div class="modal" id="mbox"></div></div>
 <div id="toast"></div>
-
-<!-- Firebase loading overlay -->
-<div id="fb-loading">
+<div id="fb-loading" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(250,246,240,.97);flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif">
   <div style="font-size:2rem">🔥</div>
   <div style="font-weight:600;font-size:.95rem;color:#1a1612">A ligar à base de dados…</div>
-  <div style="width:44px;height:4px;background:#e8e0d6;border-radius:2px;overflow:hidden">
-    <div style="height:100%;background:#b5451b;border-radius:2px;animation:fbload 1.2s ease-in-out infinite"></div>
-  </div>
+  <div style="width:44px;height:4px;background:#e8e0d6;border-radius:2px;overflow:hidden"><div style="height:100%;background:#b5451b;border-radius:2px;animation:fbload 1.2s ease-in-out infinite"></div></div>
 </div>
+<style>@keyframes fbload{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}</style>
 
 <script>
 // ═══════════════════════════════════════════
@@ -433,7 +429,7 @@ const uid   = () => Math.random().toString(36).slice(2,9);
 const byId  = (arr,id) => arr.find(x=>x.id===id);
 
 // ═══════════════════════════════════════════
-//  ADMIN STATE (session only)
+//  ADMIN STATE (session only — not persisted)
 // ═══════════════════════════════════════════
 let isAdmin = false;
 
@@ -444,7 +440,7 @@ function toggleAdmin(){
 function logout(){
   isAdmin=false;
   applyAdminUI();
-  if(S.ui.view==='people') showView('month');
+  if(_ui.view==='people') showView('month');
   toast('Sessão de administrador terminada');
 }
 
@@ -469,10 +465,10 @@ function applyAdminUI(){
     lockBtn.classList.remove('unlocked');
     lockBtn.title='Modo Administrador';
     lockBtn.textContent='🔒';
-    if(pill) pill.style.display=(S.ui.view==='expenses')?'flex':'none';
+    if(pill) pill.style.display=(_ui.view==='expenses')?'flex':'none';
   }
   const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
-  renders[S.ui.view]?.();
+  renders[_ui.view]?.();
 }
 
 // ─── PIN MODAL ─────────────────────────────
@@ -548,79 +544,50 @@ const DEFAULTS = {
   ],
   monthly:{},
   history:[]
-  // NOTE: ui is intentionally NOT stored in DEFAULTS/Firebase — it's local only
 };
 
-// ── Local UI state (never synced to Firebase) ──
-let _localUI = {
+// UI state is LOCAL ONLY — never goes to Firebase
+let _ui = {
   view: 'month',
   month: new Date().getMonth(),
   year:  new Date().getFullYear()
 };
+(()=>{ try{ const s=localStorage.getItem('casa_ui'); if(s){ const p=JSON.parse(s); _ui.view=p.view||'month'; _ui.month=p.month??_ui.month; _ui.year=p.year??_ui.year; } }catch(e){} })();
+const saveUI = () => { try{ localStorage.setItem('casa_ui', JSON.stringify(_ui)); }catch(e){} };
 
-function loadLocalUI(){
-  try {
-    const stored = localStorage.getItem('casa_ui');
-    if(stored) { const p=JSON.parse(stored); _localUI.view=p.view||'month'; _localUI.month=p.month??_localUI.month; _localUI.year=p.year??_localUI.year; }
-  } catch(e){}
-}
-
-function saveLocalUI(){
-  localStorage.setItem('casa_ui', JSON.stringify(_localUI));
-}
-
-let S = (() => {
-  try {
-    const d = localStorage.getItem('casa_v5');
-    if(d){
-      const parsed = JSON.parse(d);
-      if(parsed.expenses) parsed.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
-      delete parsed.ui;
-      if(!parsed.people)   parsed.people   = clone(DEFAULTS.people);
-      if(!parsed.expenses) parsed.expenses = clone(DEFAULTS.expenses);
-      if(!parsed.monthly)  parsed.monthly  = {};
-      if(!parsed.history)  parsed.history  = [];
-      return parsed;
+// Data state — synced with Firebase
+let S = (()=>{
+  try{
+    const raw = localStorage.getItem('casa_v5') || localStorage.getItem('casa_v4');
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d.expenses) d.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+      if(!d.people)  d.people  = clone(DEFAULTS.people);
+      if(!d.monthly) d.monthly = {};
+      if(!d.history) d.history = [];
+      delete d.ui;
+      return d;
     }
-    // Migrate from v4
-    const d4 = localStorage.getItem('casa_v4');
-    if(d4){
-      const old = JSON.parse(d4);
-      if(old.monthly) Object.values(old.monthly).forEach(e=>{ if(!e.externalContribs) e.externalContribs=[]; });
-      if(old.expenses) old.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
-      delete old.ui;
-      localStorage.setItem('casa_v5', JSON.stringify(old));
-      return old;
-    }
-    return clone(DEFAULTS);
-  } catch(err){ console.error('State load error:', err); return clone(DEFAULTS); }
+  }catch(e){ console.error('State load error:',e); }
+  return clone(DEFAULTS);
 })();
 
-loadLocalUI();
+// Firebase write control
+let _fbReceiving = false;
+let _fbWriteTimer = null;
 
-// ═══════════════════════════════════════════
-//  SAVE — local + Firebase, no loop
-// ═══════════════════════════════════════════
-let _fbWriteTimer = null;   // debounce Firebase writes
-let _fbReceiving  = false;  // true while processing incoming Firebase data
-
-function save(){
-  // 1. Save locally immediately (fast, synchronous)
-  const payload = clone(S);
-  delete payload.ui; // never persist ui
-  localStorage.setItem('casa_v5', JSON.stringify(payload));
-
-  // 2. Debounce Firebase write by 600ms so rapid typing doesn't spam
+const save = () => {
+  // Always save locally first
+  const data = { people:S.people, expenses:S.expenses, monthly:S.monthly, history:S.history };
+  try{ localStorage.setItem('casa_v5', JSON.stringify(data)); }catch(e){}
+  // Debounced Firebase write — skip if we're receiving remote data (prevents echo loop)
   if(window._fbSet && !_fbReceiving){
     clearTimeout(_fbWriteTimer);
     _fbWriteTimer = setTimeout(()=>{
-      window._fbSet(payload).catch(err=>{
-        console.error('Firebase write error:', err);
-        toast('⚠️ Erro ao sincronizar');
-      });
+      window._fbSet(data).catch(err=>{ console.error('Firebase write error:',err); toast('⚠️ Erro ao guardar na cloud'); });
     }, 600);
   }
-}
+};
 
 // ═══════════════════════════════════════════
 //  MONTH ENTRY
@@ -666,14 +633,14 @@ function calcFrom(people, expenses, entry){
     const amount = parseFloat(entry.amounts[exp.id])||0;
     if(!amount) return;
     const row = {type:'recurring',exp,amount,perPerson:{}};
-
+    const fixedCost = (exp.split==='proportional' && (exp.fixedCost||0)>0)
+      ? Math.min(parseFloat(exp.fixedCost)||0, amount) : 0;
+    const variablePart = amount - fixedCost;
     if(exp.split==='proportional'){
-      // Fixed part split equally ÷ N, variable part split by presence days
-      const fixedCost    = Math.min(parseFloat(exp.fixedCost)||0, amount);
-      const variablePart = amount - fixedCost;
-      const fixedEach    = fixedCost / (people.length || 1);
+      const fixedEach = fixedCost / (people.length || 1);
       people.forEach(p=>{
-        const v = fixedEach + variablePart * (totalDays[p.id] / grandDays);
+        const varShare = variablePart * (totalDays[p.id] / grandDays);
+        const v = fixedEach + varShare;
         row.perPerson[p.id]=v; shares[p.id]+=v;
       });
     } else if(exp.split==='equal'){
@@ -758,24 +725,22 @@ function showView(name){
   document.getElementById('view-'+name).classList.add('on');
   const nvEl=document.getElementById('nv-'+name);
   if(nvEl) nvEl.classList.add('on');
-  _localUI.view=name;
-  saveLocalUI();
+  _ui.view=name; saveUI();
   const pill=document.getElementById('expReadonlyPill');
   if(pill) pill.style.display=(name==='expenses'&&!isAdmin)?'flex':'none';
   ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[name]?.();
 }
 
 function chMonth(d){
-  _localUI.month+=d;
-  if(_localUI.month>11){_localUI.month=0;_localUI.year++;}
-  if(_localUI.month<0){_localUI.month=11;_localUI.year--;}
-  saveLocalUI();
-  updateMlbl();
-  if(_localUI.view==='month') renderMonth();
+  _ui.month+=d;
+  if(_ui.month>11){_ui.month=0;_ui.year++;}
+  if(_ui.month<0){_ui.month=11;_ui.year--;}
+  saveUI(); updateMlbl();
+  if(_ui.view==='month') renderMonth();
 }
 
-function updateMlbl(){
-  document.getElementById('mlbl').textContent=fmtM(_localUI.year,_localUI.month);
+function updateMlbl(){ 
+  document.getElementById('mlbl').textContent=fmtM(_ui.year,_ui.month); 
 }
 
 // ═══════════════════════════════════════════
@@ -819,10 +784,7 @@ function buildBreakdownHTML(people, res, showTotCol){
 //  RENDER: MÊS
 // ═══════════════════════════════════════════
 function renderMonth(){
-  try { _renderMonth(); } catch(err){ console.error('renderMonth error:', err); document.getElementById('vMonth').innerHTML=`<div class="empty"><span class="emico">⚠️</span><p class="emtxt">Erro ao carregar o mês.<br><small style="font-size:.7rem;opacity:.6">${err.message}</small></p></div>`; }
-}
-function _renderMonth(){
-  const y=_localUI.year, m=_localUI.month;
+  const y=_ui.year, m=_ui.month;
   const entry=getEntry(y,m);
   const res=calc(y,m);
   const el=document.getElementById('vMonth');
@@ -974,32 +936,28 @@ function _renderMonth(){
     ${adminSave}
     <div style="height:12px"></div>
   `;
-} // end _renderMonth
+}
 
 function togSec(id){
   document.getElementById('tog-'+id).classList.toggle('open');
   document.getElementById('sec-'+id).classList.toggle('open');
 }
 
-// ── Month mutations (admin only) ──
-function setFixedCost(eid,v){
-  if(!isAdmin) return;
-  const exp = S.expenses.find(e=>e.id===eid);
-  if(exp){ exp.fixedCost = parseFloat(v)||0; save(); }
-  // Don't re-render — user is still typing in the input
-}
-function setAmt(eid,v)  { if(!isAdmin) return; getEntry(_localUI.year,_localUI.month).amounts[eid]=parseFloat(v)||0; save(); }
-function chExtra(pid,d) { if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.extraDays[pid]=Math.max(0,(e.extraDays[pid]||0)+d); save(); renderMonth(); }
-function setExtra(pid,v){ if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.extraDays[pid]=Math.max(0,parseInt(v)||0); save(); }
-function addCharge(pid) { if(!isAdmin) return; getEntry(_localUI.year,_localUI.month).extraCharges.push({id:uid(),personId:pid,label:'',amount:0}); save(); renderMonth(); }
-function updCharge(cid,f,v){ if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month),c=e.extraCharges.find(x=>x.id===cid); if(c){c[f]=f==='amount'?parseFloat(v)||0:v; save();} }
-function delCharge(cid){ if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.extraCharges=e.extraCharges.filter(x=>x.id!==cid); save(); renderMonth(); }
-function delQuick(qid)  { if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.quickExpenses=e.quickExpenses.filter(x=>x.id!==qid); save(); renderMonth(); }
-function delExternal(ecid){ if(!isAdmin) return; const e=getEntry(_localUI.year,_localUI.month); e.externalContribs=e.externalContribs.filter(x=>x.id!==ecid); save(); renderMonth(); }
+// Month mutations (admin only)
+// Note: setAmt, setFixedCost, setExtra, updCharge do NOT re-render — user is typing
+function setFixedCost(eid,v){ if(!isAdmin) return; const exp=S.expenses.find(e=>e.id===eid); if(exp){ exp.fixedCost=parseFloat(v)||0; save(); } }
+function setAmt(eid,v)  { if(!isAdmin) return; getEntry(_ui.year,_ui.month).amounts[eid]=parseFloat(v)||0; save(); }
+function chExtra(pid,d) { if(!isAdmin) return; const e=getEntry(_ui.year,_ui.month); e.extraDays[pid]=Math.max(0,(e.extraDays[pid]||0)+d); save(); renderMonth(); }
+function setExtra(pid,v){ if(!isAdmin) return; const e=getEntry(_ui.year,_ui.month); e.extraDays[pid]=Math.max(0,parseInt(v)||0); save(); }
+function addCharge(pid) { if(!isAdmin) return; getEntry(_ui.year,_ui.month).extraCharges.push({id:uid(),personId:pid,label:'',amount:0}); save(); renderMonth(); }
+function updCharge(cid,f,v){ if(!isAdmin) return; const e=getEntry(_ui.year,_ui.month),c=e.extraCharges.find(x=>x.id===cid); if(c){c[f]=f==='amount'?parseFloat(v)||0:v; save();} }
+function delCharge(cid){ if(!isAdmin) return; const e=getEntry(_ui.year,_ui.month); e.extraCharges=e.extraCharges.filter(x=>x.id!==cid); save(); renderMonth(); }
+function delQuick(qid)  { if(!isAdmin) return; const e=getEntry(_ui.year,_ui.month); e.quickExpenses=e.quickExpenses.filter(x=>x.id!==qid); save(); renderMonth(); }
+function delExternal(ecid){ if(!isAdmin) return; const e=getEntry(_ui.year,_ui.month); e.externalContribs=e.externalContribs.filter(x=>x.id!==ecid); save(); renderMonth(); }
 
 function saveMonth(){
   if(!isAdmin){toast('Requer administrador');return;}
-  const y=_localUI.year,m=_localUI.month;
+  const y=_ui.year,m=_ui.month;
   const res=calc(y,m); const entry=getEntry(y,m);
   const snap={id:uid(),year:y,month:m,label:fmtM(y,m),people:clone(S.people),expenses:clone(S.expenses),entry:clone(entry),shares:clone(res.shares),breakdown:clone(res.breakdown),credits:clone(res.credits),grandTotal:Object.values(res.shares).reduce((a,b)=>a+(b>0?b:0),0),savedAt:new Date().toISOString()};
   const idx=S.history.findIndex(h=>h.year===y&&h.month===m);
@@ -1049,7 +1007,7 @@ function saveExternal(){
   if(!amt){toast('Insere um valor');return;}
   if(!window._ec.splitPeople.length){toast('Seleciona pelo menos um morador');return;}
   window._ec.desc=document.getElementById('ecDesc').value.trim();
-  const entry=getEntry(_localUI.year,_localUI.month);
+  const entry=getEntry(_ui.year,_ui.month);
   entry.externalContribs.push({id:uid(),name,desc:window._ec.desc,amount:amt,splitMode:window._ec.splitMode,splitPeople:clone(window._ec.splitPeople)});
   save();closeModal();renderMonth();toast(`${name} adicionado ✓`);
 }
@@ -1058,7 +1016,7 @@ function saveExternal(){
 //  QUICK EXPENSE MODAL
 // ═══════════════════════════════════════════
 function openQuickModal(){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   window._qe={label:'',paidBy:'',amount:0,splitPeople:clone(S.people.map(p=>p.id))};
   const pchecks=S.people.map(p=>`
     <div class="pchk on" id="qp-${p.id}" onclick="togQP('${p.id}')">
@@ -1083,7 +1041,7 @@ function saveQuick(){
   if(!window._qe.label.trim()){toast('Insere uma descrição');return;}
   if(!window._qe.amount){toast('Insere um valor');return;}
   if(!window._qe.splitPeople.length){toast('Seleciona pelo menos uma pessoa');return;}
-  const entry=getEntry(_localUI.year,_localUI.month);
+  const entry=getEntry(_ui.year,_ui.month);
   entry.quickExpenses.push({id:uid(),label:window._qe.label.trim(),paidBy:window._qe.paidBy.trim(),amount:window._qe.amount,splitPeople:clone(window._qe.splitPeople)});
   save();closeModal();renderMonth();toast('Despesa adicionada ✓');
 }
@@ -1121,7 +1079,7 @@ function renderExpenses(){
       <span class="eico">${exp.emoji}</span>
       <div class="einfo">
         <div class="ename">${exp.name} ${splitChip(exp)}</div>
-        <div class="emeta">Padrão: ${exp.defaultAmount?fmt(exp.defaultAmount):'—'}${exp.fixedCost>0?` · Fixo: ${fmt(exp.fixedCost)}`:''}</div>
+        <div class="emeta">Padrão: ${exp.defaultAmount?fmt(exp.defaultAmount):'—'}</div>
       </div>
       ${isAdmin?`<div class="ract">
         <button class="ia" onclick="openExpModal('${exp.id}')">✏️</button>
@@ -1177,39 +1135,21 @@ function renderHistory(detId){
         <span class="hexpamt">${fmt(parseFloat(c.amount)||0)}</span>
       </div>`;
     }).join('');
-    const grandTotal=Object.values(h.shares).reduce((a,b)=>a+(b>0?b:0),0);
     el.innerHTML=`
       <div class="detback">
         <button class="backbtn" onclick="renderHistory()">‹</button>
         <div><div class="hmonth">${h.label}</div><div class="hmeta">Guardado ${saved}</div></div>
       </div>
       <div class="rgrid">${cards}</div>
-      <div class="bkcard">
-        <div class="bktitle">Detalhe por despesa · com totais</div>
-        ${bkRows}
-      </div>
+      <div class="bkcard"><div class="bktitle">Detalhe por despesa · com totais</div>${bkRows}</div>
       <div class="card">
         <div class="hsection">Despesas recorrentes</div>
         ${recurringRows||'<p class="tsm tmuted">—</p>'}
-        <div class="htotalrow">
-          <span>Total recorrentes</span>
-          <span>${fmt(h.expenses.reduce((a,exp)=>a+(parseFloat(h.entry.amounts?.[exp.id])||0),0))}</span>
-        </div>
+        <div class="htotalrow"><span>Total recorrentes</span><span>${fmt(h.expenses.reduce((a,exp)=>a+(parseFloat(h.entry.amounts?.[exp.id])||0),0))}</span></div>
       </div>
-      ${quickRows?`<div class="card">
-        <div class="hsection">Despesas pontuais</div>
-        ${quickRows}
-        <div class="htotalrow"><span>Total pontuais</span><span>${fmt((h.entry.quickExpenses||[]).reduce((a,q)=>a+(parseFloat(q.amount)||0),0))}</span></div>
-      </div>`:''}
-      ${extRows?`<div class="card">
-        <div class="hsection">Contribuições externas</div>
-        ${extRows}
-        <div class="htotalrow" style="color:var(--green)"><span>Total créditos</span><span>−${fmt((h.entry.externalContribs||[]).reduce((a,ec)=>a+(parseFloat(ec.amount)||0),0))}</span></div>
-      </div>`:''}
-      ${chargeRows?`<div class="card">
-        <div class="hsection">Custos individuais</div>
-        ${chargeRows}
-      </div>`:''}
+      ${quickRows?`<div class="card"><div class="hsection">Despesas pontuais</div>${quickRows}<div class="htotalrow"><span>Total pontuais</span><span>${fmt((h.entry.quickExpenses||[]).reduce((a,q)=>a+(parseFloat(q.amount)||0),0))}</span></div></div>`:''}
+      ${extRows?`<div class="card"><div class="hsection">Contribuições externas</div>${extRows}<div class="htotalrow" style="color:var(--green)"><span>Total créditos</span><span>−${fmt((h.entry.externalContribs||[]).reduce((a,ec)=>a+(parseFloat(ec.amount)||0),0))}</span></div></div>`:''}
+      ${chargeRows?`<div class="card"><div class="hsection">Custos individuais</div>${chargeRows}</div>`:''}
       ${isAdmin?`<div style="text-align:center;padding:10px 0"><button class="btn bdanger" onclick="delHist('${h.id}')">🗑 Apagar registo</button></div>`:''}
     `;
     return;
@@ -1241,7 +1181,7 @@ function delHist(id){ if(!isAdmin||!confirm('Apagar registo?'))return; S.history
 //  PERSON MODAL
 // ═══════════════════════════════════════════
 function openPersonModal(id){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   const existing=id?byPid(id):null;
   window._ep=clone(existing||{id:null,name:'',color:COLORS[S.people.length%COLORS.length],days:[true,true,true,true,false,false,false]});
   const cswatches=COLORS.map(c=>`<div class="csw${c===window._ep.color?' on':''}" style="background:${c}" onclick="pickPColor('${c}')" data-pc="${c}">${c===window._ep.color?'✓':''}</div>`).join('');
@@ -1270,20 +1210,20 @@ function togPDay(i){
   el.style.borderColor=window._ep.days[i]?window._ep.color:'';
 }
 function savePerson(id){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   const name=document.getElementById('pName').value.trim();
   if(!name){toast('Insere um nome');return;}
   const p={...window._ep,name};
   if(id){const idx=S.people.findIndex(x=>x.id===id);if(idx>=0)S.people[idx]={...p,id};}
   else S.people.push({...p,id:uid()});
-  save();closeModal();renderPeople();if(_localUI.view==='month')renderMonth();
+  save();closeModal();renderPeople();if(_ui.view==='month')renderMonth();
 }
 
 // ═══════════════════════════════════════════
 //  EXPENSE MODAL
 // ═══════════════════════════════════════════
 function openExpModal(id){
-  if(!isAdmin){return;}
+  if(!isAdmin){toast('Requer modo administrador');return;}
   const existing=id?byEid(id):null;
   window._ee=clone(existing||{id:null,name:'',emoji:'🔥',split:'proportional',equalPeople:null,personalTo:S.people[0]?.id||null,weights:{},defaultAmount:0,fixedCost:0});
   if(!window._ee.equalPeople) window._ee.equalPeople=S.people.map(p=>p.id);
@@ -1347,7 +1287,7 @@ function saveExp(id){
   if(e.split==='equal'&&!e.equalPeople?.length) e.equalPeople=S.people.map(p=>p.id);
   if(id){const idx=S.expenses.findIndex(x=>x.id===id);if(idx>=0)S.expenses[idx]={...e,id};}
   else S.expenses.push({...e,id:uid()});
-  save();closeModal();renderExpenses();if(_localUI.view==='month')renderMonth();
+  save();closeModal();renderExpenses();if(_ui.view==='month')renderMonth();
 }
 
 // ═══════════════════════════════════════════
@@ -1360,74 +1300,77 @@ let _tt;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('on'),2600);}
 
 // ═══════════════════════════════════════════
-//  FIREBASE SYNC — fixed, no loops
+//  FIREBASE SYNC
 // ═══════════════════════════════════════════
-let _fbSynced    = false;
-let _fbReceiving = false; // prevents save() echoing back to Firebase
+let _fbSynced = false;
 
-function applyRemoteData(remoteData){
-  if(!remoteData || typeof remoteData !== 'object') return;
-  try {
-    _fbReceiving = true;
-    if(Array.isArray(remoteData.people)   && remoteData.people.length)   S.people   = remoteData.people;
-    if(Array.isArray(remoteData.expenses) && remoteData.expenses.length) S.expenses = remoteData.expenses;
-    if(remoteData.monthly  && typeof remoteData.monthly  === 'object')   S.monthly  = remoteData.monthly;
-    if(Array.isArray(remoteData.history))                                 S.history  = remoteData.history;
-    S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
-    const payload = {people:S.people, expenses:S.expenses, monthly:S.monthly, history:S.history};
-    localStorage.setItem('casa_v5', JSON.stringify(payload));
-  } catch(err){ console.error('applyRemoteData error:', err); }
-  finally { _fbReceiving = false; }
+function setFbStatus(ok){
+  const b=document.getElementById('fb-status');
+  if(!b) return;
+  b.textContent = ok ? '☁️ sync' : '📵 offline';
+  b.style.background = ok ? '#eaf5ee' : '#fdecea';
+  b.style.color = ok ? '#1e7a4a' : '#b5451b';
 }
 
-function updateFbStatus(ok){
-  const badge = document.getElementById('fb-status');
-  if(!badge) return;
-  if(ok){
-    badge.textContent='☁️ sync';
-    badge.style.background='#eaf5ee';
-    badge.style.color='#1e7a4a';
-  } else {
-    badge.textContent='📵 offline';
-    badge.style.background='#fdecea';
-    badge.style.color='#b5451b';
-  }
+function applyRemoteData(remote){
+  if(!remote || typeof remote !== 'object') return;
+  try{
+    _fbReceiving = true;
+    if(Array.isArray(remote.people)   && remote.people.length)   S.people   = remote.people;
+    if(Array.isArray(remote.expenses) && remote.expenses.length) S.expenses = remote.expenses;
+    if(remote.monthly  && typeof remote.monthly  ==='object')    S.monthly  = remote.monthly;
+    if(Array.isArray(remote.history))                             S.history  = remote.history;
+    S.expenses.forEach(e=>{ if(e.fixedCost===undefined) e.fixedCost=0; });
+    const payload={people:S.people,expenses:S.expenses,monthly:S.monthly,history:S.history};
+    localStorage.setItem('casa_v5', JSON.stringify(payload));
+  }catch(e){ console.error('applyRemoteData error:',e); }
+  finally{ _fbReceiving=false; }
 }
 
 function initFirebase(){
+  // Wait for module to expose _fbWatch (async module load)
   if(!window._fbWatch){
-    if(window._fbError){
-      // Firebase failed to init entirely
-      console.error('Firebase unavailable:', window._fbError);
+    if(window._fbInitError){
+      console.error('Firebase unavailable:', window._fbInitError);
       document.getElementById('fb-loading').style.display='none';
-      updateFbStatus(false);
+      setFbStatus(false);
       renderMonth();
-      toast('⚠️ Firebase indisponível — dados locais');
       return;
     }
-    setTimeout(initFirebase, 150);
+    setTimeout(initFirebase, 200);
     return;
   }
 
-  window._fbWatch(remoteData => {
-    updateFbStatus(true);
-    applyRemoteData(remoteData);
-
-    if(!_fbSynced){
-      _fbSynced = true;
-      document.getElementById('fb-loading').style.display='none';
-      updateMlbl();
-      renderMonth();
-    } else {
-      const active = document.activeElement;
-      const isEditing = active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA');
-      if(!isEditing){
+  window._fbWatch(
+    remoteData => {
+      setFbStatus(true);
+      applyRemoteData(remoteData);
+      if(!_fbSynced){
+        _fbSynced=true;
+        document.getElementById('fb-loading').style.display='none';
         updateMlbl();
-        const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
-        renders[_localUI.view]?.();
+        renderMonth();
+      } else {
+        // Live update — only re-render if not typing
+        const ae=document.activeElement;
+        if(!ae || (ae.tagName!=='INPUT' && ae.tagName!=='TEXTAREA')){
+          updateMlbl();
+          ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[_ui.view]?.();
+        }
+      }
+    },
+    err => {
+      // Firebase permission error or network error
+      console.error('Firebase watch error:', err);
+      if(!_fbSynced){
+        _fbSynced=true;
+        document.getElementById('fb-loading').style.display='none';
+        setFbStatus(false);
+        renderMonth();
+        toast('⚠️ Firebase: ' + (err.message||'erro de ligação'));
       }
     }
-  });
+  );
 }
 
 // ═══════════════════════════════════════════
@@ -1436,17 +1379,16 @@ function initFirebase(){
 updateMlbl();
 document.getElementById('fb-loading').style.display='flex';
 
-// Fallback: if Firebase doesn't connect in 8s, show local data
+// Fallback: if nothing happens in 7s, load with local data
 setTimeout(()=>{
   if(!_fbSynced){
+    _fbSynced=true;
     document.getElementById('fb-loading').style.display='none';
-    updateFbStatus(false);
+    setFbStatus(false);
     renderMonth();
-    const reason = window._fbError ? ` (${window._fbError})` : '';
-    toast('⚠️ Firebase offline — a usar dados locais' + reason);
-    console.warn('Firebase timeout. Error:', window._fbError||'unknown');
+    toast('⚠️ Sem ligação — a usar dados locais');
   }
-}, 8000);
+}, 7000);
 
 initFirebase();
 </script>
