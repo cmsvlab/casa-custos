@@ -344,6 +344,31 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .info-pill{display:flex;align-items:flex-start;gap:8px;background:var(--gold-bg);border:1px solid #e8d090;border-radius:10px;padding:10px 12px;font-size:.78rem;color:var(--gold);line-height:1.5;margin-bottom:12px}
 .readonly-pill{display:flex;align-items:center;gap:8px;background:var(--admin-bg);border:1px solid #c5bce8;border-radius:10px;padding:8px 12px;font-size:.75rem;color:var(--admin);margin-bottom:12px}
 
+/* ─── STATS ───────────────────────────────────────── */
+.stat-section{margin-bottom:16px}
+.stat-card{background:var(--card);border:1px solid var(--rule);border-radius:var(--r);padding:16px;box-shadow:var(--lift);margin-bottom:12px}
+.stat-title{font-size:.67rem;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--subtle);margin-bottom:14px}
+.stat-chart{width:100%;overflow:hidden;border-radius:10px}
+.stat-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.stat-leg-item{display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;color:var(--ink2)}
+.stat-leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.stat-empty{text-align:center;padding:32px 16px;color:var(--muted);font-size:.86rem;line-height:1.7}
+.stat-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px}
+.stat-kpi{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:12px 14px}
+.stat-kpi-label{font-size:.65rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--subtle);margin-bottom:4px}
+.stat-kpi-val{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--ink);letter-spacing:-.5px}
+.stat-kpi-sub{font-size:.68rem;color:var(--muted);margin-top:2px}
+.stat-avg-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule);gap:8px}
+.stat-avg-row:last-child{border-bottom:none}
+.stat-avg-ico{font-size:1rem;width:22px;text-align:center;flex-shrink:0}
+.stat-avg-name{flex:1;font-size:.84rem;font-weight:500}
+.stat-avg-vals{display:flex;gap:12px;flex-shrink:0}
+.stat-avg-val{text-align:right;min-width:52px}
+.stat-avg-lbl{font-size:.6rem;color:var(--subtle);display:block;margin-bottom:1px;letter-spacing:.3px;text-transform:uppercase}
+.stat-avg-num{font-size:.84rem;font-weight:700;color:var(--ink)}
+.stat-avg-diff{font-size:.7rem;font-weight:600}
+.diff-up{color:var(--red)}.diff-dn{color:var(--green)}.diff-eq{color:var(--subtle)}
+
 @media(min-width:480px){
   main{max-width:480px;margin-left:auto;margin-right:auto}
   #nav{position:fixed;max-width:480px;left:50%;transform:translateX(-50%);right:auto}
@@ -392,12 +417,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   </div>
   <!-- HISTÓRICO -->
   <div class="view" id="view-history"><div id="vHistory"></div></div>
+  <!-- ESTATÍSTICAS -->
+  <div class="view" id="view-stats"><div id="vStats"></div></div>
 </main>
 
 <nav id="nav">
   <button class="nv on" id="nv-month"    onclick="showView('month')">   <span class="ni">🗓</span>Mês</button>
   <button class="nv"    id="nv-expenses" onclick="showView('expenses')"> <span class="ni">📋</span>Despesas</button>
   <button class="nv"    id="nv-history"  onclick="showView('history')">  <span class="ni">🕐</span>Histórico</button>
+  <button class="nv" id="nv-stats" onclick="showView('stats')"><span class="ni">📊</span>Stats</button>
   <button class="nv admin-only" id="nv-people" onclick="showView('people')"><span class="ni">👥</span>Pessoas</button>
 </nav>
 
@@ -476,7 +504,7 @@ function applyAdminUI(){
     lockBtn.textContent='🔒';
     if(pill) pill.style.display=(_ui.view==='expenses')?'flex':'none';
   }
-  const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()};
+  const renders={month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory(),stats:renderStats};
   renders[_ui.view]?.();
 }
 
@@ -743,7 +771,7 @@ function showView(name){
   _ui.view=name; saveUI();
   const pill=document.getElementById('expReadonlyPill');
   if(pill) pill.style.display=(name==='expenses'&&!isAdmin)?'flex':'none';
-  ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[name]?.();
+  ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory(),stats:renderStats})[name]?.();
 }
 
 function chMonth(d){
@@ -1332,6 +1360,250 @@ function saveExp(id){
 }
 
 // ═══════════════════════════════════════════
+//  RENDER: ESTATÍSTICAS
+// ═══════════════════════════════════════════
+function renderStats(){
+  const el = document.getElementById('vStats');
+  const hist = S.history.slice().sort((a,b)=> a.year!==b.year ? a.year-b.year : a.month-b.month);
+
+  if(hist.length < 1){
+    el.innerHTML=`<div class="stat-empty"><span style="font-size:2.4rem;display:block;opacity:.3;margin-bottom:10px">📊</span>Ainda não há histórico guardado.<br>Guarda pelo menos um mês para ver estatísticas.</div>`;
+    return;
+  }
+
+  const fmtE = v => (Math.round(v*100)/100).toFixed(2).replace('.',',')+'€';
+  const months = hist.map(h => MONTHS_PT[h.month].slice(0,3)+' '+String(h.year).slice(2));
+
+  // ── KPIs ──
+  const totals  = hist.map(h => Object.values(h.shares).reduce((a,b)=>a+(b>0?b:0),0));
+  const avgTotal = totals.reduce((a,b)=>a+b,0)/totals.length;
+  const maxTotal = Math.max(...totals);
+  const minTotal = Math.min(...totals);
+  const lastTotal = totals[totals.length-1];
+  const prevTotal = totals.length>1 ? totals[totals.length-2] : null;
+  const diffPct = prevTotal ? ((lastTotal-prevTotal)/prevTotal*100) : null;
+  const diffStr = diffPct === null ? '' : (diffPct>0?`+${diffPct.toFixed(0)}%`:`${diffPct.toFixed(0)}%`);
+  const diffCls = diffPct === null ? '' : (diffPct>1?'diff-up':diffPct<-1?'diff-dn':'diff-eq');
+
+  const kpiHtml = `
+    <div class="stat-kpi-grid">
+      <div class="stat-kpi">
+        <div class="stat-kpi-label">Último mês</div>
+        <div class="stat-kpi-val">${fmtE(lastTotal)}</div>
+        <div class="stat-kpi-sub ${diffCls}">${diffStr||'—'} vs anterior</div>
+      </div>
+      <div class="stat-kpi">
+        <div class="stat-kpi-label">Média mensal</div>
+        <div class="stat-kpi-val">${fmtE(avgTotal)}</div>
+        <div class="stat-kpi-sub">${hist.length} ${hist.length===1?'mês':'meses'}</div>
+      </div>
+      <div class="stat-kpi">
+        <div class="stat-kpi-label">Máximo</div>
+        <div class="stat-kpi-val">${fmtE(maxTotal)}</div>
+        <div class="stat-kpi-sub">${months[totals.indexOf(maxTotal)]}</div>
+      </div>
+      <div class="stat-kpi">
+        <div class="stat-kpi-label">Mínimo</div>
+        <div class="stat-kpi-val">${fmtE(minTotal)}</div>
+        <div class="stat-kpi-sub">${months[totals.indexOf(minTotal)]}</div>
+      </div>
+    </div>`;
+
+  // ── Line chart: total por mês ──
+  const lineChart = buildLineChart(hist, months, totals);
+
+  // ── Bar chart: por pessoa por mês ──
+  const barChart = buildBarChart(hist, months);
+
+  // ── Médias por despesa ──
+  const avgTable = buildAvgTable(hist);
+
+  el.innerHTML = `
+    ${kpiHtml}
+    <div class="stat-card">
+      <div class="stat-title">Custo total por mês</div>
+      ${lineChart}
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Divisão por pessoa</div>
+      ${barChart}
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Médias por despesa</div>
+      ${avgTable}
+    </div>
+  `;
+}
+
+function buildLineChart(hist, months, totals){
+  if(hist.length < 2) return `<p class="tsm tmuted" style="text-align:center;padding:16px">Precisas de pelo menos 2 meses guardados.</p>`;
+  const W=340, H=160, PL=46, PR=12, PT=12, PB=32;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const maxV = Math.max(...totals)*1.1||1;
+  const minV = Math.min(...totals)*0.9;
+  const range = maxV-minV||1;
+  const n = totals.length;
+  const xScale = i => PL + (i/(n-1||1))*cW;
+  const yScale = v => PT + cH - ((v-minV)/range)*cH;
+
+  // Grid lines
+  const gridVals = [minV+(range*0.25), minV+(range*0.5), minV+(range*0.75), maxV];
+  let gridLines = gridVals.map(v=>{
+    const y = yScale(v);
+    return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#e8e0d6" stroke-width="1"/>
+            <text x="${PL-4}" y="${y+4}" text-anchor="end" font-size="9" fill="#b8aea4">${Math.round(v)}€</text>`;
+  }).join('');
+
+  // Area fill
+  const pts = totals.map((v,i)=>`${xScale(i)},${yScale(v)}`).join(' ');
+  const areaD = `M${xScale(0)},${H-PB} ` + totals.map((v,i)=>`L${xScale(i)},${yScale(v)}`).join(' ') + ` L${xScale(n-1)},${H-PB} Z`;
+
+  // Line
+  const lineD = totals.map((v,i)=>(i===0?'M':'L')+`${xScale(i)},${yScale(v)}`).join(' ');
+
+  // X labels — show every N to avoid overlap
+  const step = n <= 6 ? 1 : n <= 12 ? 2 : Math.ceil(n/6);
+  let xLabels = totals.map((_,i)=>{
+    if(i % step !== 0 && i !== n-1) return '';
+    return `<text x="${xScale(i)}" y="${H-PB+14}" text-anchor="middle" font-size="8.5" fill="#8c8078">${months[i]}</text>`;
+  }).join('');
+
+  // Data points + tooltips
+  let dots = totals.map((v,i)=>`
+    <circle cx="${xScale(i)}" cy="${yScale(v)}" r="3.5" fill="#b5451b" stroke="#fff" stroke-width="1.5"/>
+    <title>${months[i]}: ${(Math.round(v*100)/100).toFixed(2).replace('.',',')}€</title>`).join('');
+
+  // Average line
+  const avg = totals.reduce((a,b)=>a+b,0)/n;
+  const avgY = yScale(avg);
+
+  return `<div class="stat-chart">
+    <svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg" style="display:block">
+      <defs>
+        <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#b5451b" stop-opacity=".18"/>
+          <stop offset="100%" stop-color="#b5451b" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${gridLines}
+      <path d="${areaD}" fill="url(#lg1)"/>
+      <line x1="${PL}" y1="${avgY}" x2="${W-PR}" y2="${avgY}" stroke="#b5451b" stroke-width="1" stroke-dasharray="4,3" opacity=".4"/>
+      <text x="${W-PR+2}" y="${avgY+4}" font-size="8" fill="#b5451b" opacity=".7">média</text>
+      <path d="${lineD}" fill="none" stroke="#b5451b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}
+      ${xLabels}
+    </svg>
+  </div>`;
+}
+
+function buildBarChart(hist, months){
+  if(!hist.length) return '';
+  const people = hist[hist.length-1].people || S.people;
+  const W=340, H=170, PL=46, PR=12, PT=12, PB=32;
+  const cW=W-PL-PR, cH=H-PT-PB;
+  const n = hist.length;
+  const barW = Math.max(6, Math.min(28, (cW/n)*0.72));
+  const gap  = cW/n;
+
+  // Max stacked value
+  let maxStacked = 0;
+  hist.forEach(h=>{
+    const stacked = people.reduce((a,p)=>a+Math.max(0,h.shares[p.id]||0),0);
+    if(stacked > maxStacked) maxStacked = stacked;
+  });
+  maxStacked = maxStacked*1.08||1;
+
+  // Grid
+  const gridVals = [maxStacked*0.25, maxStacked*0.5, maxStacked*0.75, maxStacked];
+  let grid = gridVals.map(v=>{
+    const y = PT + cH - (v/maxStacked)*cH;
+    return `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#e8e0d6" stroke-width="1"/>
+            <text x="${PL-4}" y="${y+4}" text-anchor="end" font-size="9" fill="#b8aea4">${Math.round(v)}€</text>`;
+  }).join('');
+
+  // Bars
+  let bars = '';
+  const step = n <= 6 ? 1 : n <= 12 ? 2 : Math.ceil(n/6);
+  hist.forEach((h,i)=>{
+    const x = PL + i*gap + gap/2 - barW/2;
+    let yOff = PT+cH;
+    people.forEach(p=>{
+      const v = Math.max(0, h.shares[p.id]||0);
+      if(!v) return;
+      const bh = (v/maxStacked)*cH;
+      yOff -= bh;
+      bars += `<rect x="${x}" y="${yOff}" width="${barW}" height="${bh}" fill="${p.color}" rx="2" opacity=".85">
+        <title>${p.name} — ${months[i]}: ${(Math.round(v*100)/100).toFixed(2).replace('.',',')}€</title>
+      </rect>`;
+    });
+    if(i % step === 0 || i === n-1){
+      bars += `<text x="${PL+i*gap+gap/2}" y="${H-PB+14}" text-anchor="middle" font-size="8.5" fill="#8c8078">${months[i]}</text>`;
+    }
+  });
+
+  // Legend
+  const legend = people.map(p=>`<div class="stat-leg-item"><div class="stat-leg-dot" style="background:${p.color}"></div>${p.name}</div>`).join('');
+
+  return `<div class="stat-chart">
+    <svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg" style="display:block">
+      ${grid}${bars}
+    </svg>
+  </div>
+  <div class="stat-legend">${legend}</div>`;
+}
+
+function buildAvgTable(hist){
+  if(!hist.length) return '';
+  // Get all unique expense ids seen across history
+  const expMap = {};
+  hist.forEach(h=>{
+    (h.expenses||[]).forEach(exp=>{
+      if(!expMap[exp.id]) expMap[exp.id] = {id:exp.id, name:exp.name, emoji:exp.emoji, vals:[]};
+    });
+  });
+  hist.forEach(h=>{
+    (h.expenses||[]).forEach(exp=>{
+      const amt = parseFloat(h.entry?.amounts?.[exp.id])||0;
+      if(expMap[exp.id] && amt>0) expMap[exp.id].vals.push(amt);
+    });
+  });
+
+  // Current month expenses (last in history)
+  const lastH = hist[hist.length-1];
+  const lastAmounts = lastH.entry?.amounts || {};
+
+  let rows = Object.values(expMap).map(exp=>{
+    if(!exp.vals.length) return '';
+    const avg = exp.vals.reduce((a,b)=>a+b,0)/exp.vals.length;
+    const last = parseFloat(lastAmounts[exp.id])||0;
+    const diff = last - avg;
+    const diffPct = avg ? (diff/avg*100) : 0;
+    const diffStr = Math.abs(diffPct)<1 ? '—' : (diff>0?`+${diffPct.toFixed(0)}%`:`${diffPct.toFixed(0)}%`);
+    const diffCls = Math.abs(diffPct)<1 ? 'diff-eq' : diff>0 ? 'diff-up' : 'diff-dn';
+    return `<div class="stat-avg-row">
+      <span class="stat-avg-ico">${exp.emoji}</span>
+      <span class="stat-avg-name">${exp.name}</span>
+      <div class="stat-avg-vals">
+        <div class="stat-avg-val">
+          <span class="stat-avg-lbl">Média</span>
+          <span class="stat-avg-num">${(Math.round(avg*100)/100).toFixed(2).replace('.',',')}€</span>
+        </div>
+        <div class="stat-avg-val">
+          <span class="stat-avg-lbl">Último</span>
+          <span class="stat-avg-num">${last?(Math.round(last*100)/100).toFixed(2).replace('.',',')+'€':'—'}</span>
+        </div>
+        <div class="stat-avg-val">
+          <span class="stat-avg-lbl">vs média</span>
+          <span class="stat-avg-diff ${diffCls}">${diffStr}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return rows || `<p class="tsm tmuted" style="text-align:center;padding:12px">Sem dados suficientes.</p>`;
+}
+
+// ═══════════════════════════════════════════
 //  MODAL & TOAST
 // ═══════════════════════════════════════════
 function openModal(html){document.getElementById('mbox').innerHTML=html;document.getElementById('mbg').classList.remove('off');}
@@ -1439,7 +1711,7 @@ function initFirebase(){
         }
         // Real update from another device — re-render
         updateMlbl();
-        ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory()})[_ui.view]?.();
+        ({month:renderMonth,people:renderPeople,expenses:renderExpenses,history:()=>renderHistory(),stats:renderStats})[_ui.view]?.();
       }
     },
     err => {
