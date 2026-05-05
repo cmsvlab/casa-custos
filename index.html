@@ -414,6 +414,50 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .stat-avg-num{font-size:.82rem;font-weight:700;color:var(--ink)}
 .stat-avg-diff{font-size:.68rem;font-weight:600}
 .diff-up{color:var(--red)}.diff-dn{color:var(--green)}.diff-eq{color:var(--subtle)}
+/* ─── INVOICE UPLOAD MODAL ─────────────────────────── */
+.inv-drop{
+  border:2px dashed var(--rule);border-radius:var(--r);
+  padding:32px 20px;text-align:center;cursor:pointer;
+  transition:all .2s;background:#faf7f4;position:relative;
+  margin-bottom:14px;
+}
+.inv-drop.dragover{border-color:var(--green);background:var(--green-bg);}
+.inv-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.inv-drop-ico{font-size:2rem;display:block;margin-bottom:8px;line-height:1}
+.inv-drop-lbl{font-size:.86rem;font-weight:600;color:var(--ink2);margin-bottom:4px}
+.inv-drop-sub{font-size:.72rem;color:var(--muted)}
+.inv-drop.has-file{border-color:var(--green);background:var(--green-bg);}
+.inv-drop.has-file .inv-drop-ico{filter:none}
+
+.inv-state{padding:20px;text-align:center}
+.inv-spinner{display:inline-block;width:36px;height:36px;border:3px solid var(--rule);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.inv-state-lbl{font-size:.86rem;font-weight:500;color:var(--ink2);line-height:1.5}
+.inv-state-sub{font-size:.72rem;color:var(--muted);margin-top:4px}
+
+.inv-result{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.inv-result-hd{background:var(--green-bg);border-bottom:1px solid var(--green-mid);padding:10px 14px;display:flex;align-items:center;gap:8px}
+.inv-result-hd-ico{font-size:1.1rem}
+.inv-result-hd-tit{font-size:.78rem;font-weight:700;color:var(--green)}
+.inv-result-hd-sub{font-size:.68rem;color:var(--muted);margin-left:auto}
+.inv-field{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--rule)}
+.inv-field:last-child{border-bottom:none}
+.inv-field-lbl{font-size:.82rem;color:var(--ink2);flex:1}
+.inv-field-note{font-size:.68rem;color:var(--muted);margin-top:2px}
+.inv-field-val{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.inv-field-amt{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--ink)}
+.inv-field-edit{width:26px;height:26px;border-radius:6px;border:1px solid var(--rule);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.78rem;color:var(--muted);transition:all .14s}
+.inv-field-edit:hover{background:var(--rule);color:var(--ink)}
+
+.inv-components{padding:10px 14px 14px}
+.inv-components-lbl{font-size:.62rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--subtle);margin-bottom:8px}
+.inv-comp-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:.78rem;color:var(--ink2);border-bottom:1px solid #f0ece6}
+.inv-comp-row:last-child{border-bottom:none}
+.inv-comp-row span:last-child{font-weight:600;color:var(--ink)}
+
+.inv-warn{display:flex;gap:8px;background:var(--gold-bg);border:1px solid var(--gold-mid);border-radius:var(--r-sm);padding:9px 12px;font-size:.76rem;color:var(--gold);line-height:1.5;margin-bottom:12px}
+.inv-err{display:flex;gap:8px;background:var(--red-bg);border:1px solid var(--red-mid);border-radius:var(--r-sm);padding:9px 12px;font-size:.78rem;color:var(--red);line-height:1.5;margin-bottom:12px}
+
 /* ─── RESPONSIVE BREAKPOINTS ──────────────────────────────────────────────
    xs  : 0–599px       → telemóvel portrait  (layout base)
    sm  : 600–899px     → telemóvel landscape / tablet portrait
@@ -424,115 +468,128 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* ── sm: telemóvel landscape / tablet portrait ── */
 @media(min-width:600px){
   :root{ --hdr:80px; }
-  #hdr{ left:0; right:0; transform:none; max-width:none; }
-  #nav{ left:0; right:0; transform:none; max-width:none; }
+  #hdr,#nav{ left:0; right:0; transform:none; max-width:none; }
   main{ max-width:600px; margin:0 auto; }
-  .modal{ max-width:540px; }
+  .modal{ max-width:540px; border-radius:20px; }
   #mbg{ align-items:center; }
-  .modal{ border-radius:20px; }
   .rgrid{ grid-template-columns:repeat(2,1fr); }
-  .mxinpgrid{ grid-template-columns:1fr 1fr; }
 }
 
-/* ── md: tablet landscape / small laptop ── */
+/* ── md: tablet landscape / small laptop (900–1199px) ── */
 @media(min-width:900px){
-  :root{ --nav:0px; --hdr:64px; --sidebar:220px; }
+  :root{ --nav:0px; --hdr:60px; --sidebar:200px; }
 
   body{ display:grid; grid-template-columns:var(--sidebar) 1fr; grid-template-rows:var(--hdr) 1fr; min-height:100vh; }
 
-  /* On desktop the sidebar handles navigation — hide duplicate quick-nav buttons */
+  /* Hide redundant header quick-nav buttons — sidebar handles navigation */
   .hdr-nav-btn{ display:none!important; }
 
-  /* Header spans full width */
+  /* ── Header: single horizontal row ── */
   #hdr{
     grid-column:1/-1; grid-row:1;
-    position:sticky; top:0; left:0; right:0; transform:none; max-width:none;
-    flex-direction:row; height:var(--hdr); padding:0 24px; gap:16px;
+    position:sticky; top:0; transform:none; max-width:none;
+    flex-direction:row; height:var(--hdr); padding:0 20px; gap:12px;
     align-items:center; justify-content:space-between;
   }
   #hdr .hdr-row{ display:contents; }
-  .mnav{ order:2; flex:1; justify-content:center; }
   .wordmark{ order:1; }
-  .hdr-acts{ order:3; }
-  #fb-status{ order:1; margin-left:8px; }
+  #fb-status{ order:2; margin-left:4px; }
+  .mnav{ order:3; flex:1; justify-content:center; }
+  .hdr-acts{ order:4; }
 
-  /* Sidebar nav replaces bottom bar */
+  /* ── Sidebar nav ── */
   #nav{
     grid-column:1; grid-row:2;
     position:sticky; top:var(--hdr); height:calc(100vh - var(--hdr));
     width:var(--sidebar); flex-direction:column; border-top:none;
-    border-right:1px solid var(--rule); padding:16px 10px;
-    align-items:stretch; justify-content:flex-start; gap:4px;
-    background:rgba(255,255,255,.98); overflow-y:auto;
+    border-right:1px solid var(--rule); padding:12px 8px;
+    align-items:stretch; justify-content:flex-start; gap:2px;
+    background:var(--card); overflow-y:auto;
     backdrop-filter:none; -webkit-backdrop-filter:none;
   }
   .nv{
     flex-direction:row; justify-content:flex-start;
-    padding:10px 14px; border-radius:12px; gap:10px;
-    font-size:.82rem; letter-spacing:.15px; text-transform:none;
-    font-weight:500;
+    padding:9px 12px; border-radius:10px; gap:9px;
+    font-size:.8rem; letter-spacing:.1px; text-transform:none; font-weight:500;
   }
-  .nv .ni{ font-size:1.1rem; }
+  .nv .ni{ font-size:1.05rem; }
   .nv.on{ background:var(--surface); color:var(--ink); font-weight:700; }
   .nv.on .ni{ transform:none; }
 
-  /* Main content area */
+  /* ── Main content: fills the right column ── */
   main{
     grid-column:2; grid-row:2;
-    max-width:none; padding-top:24px; padding-bottom:40px;
-    padding-left:24px; padding-right:24px;
+    max-width:none; width:100%;
+    padding:24px 28px 40px;
     margin:0; overflow-y:auto;
   }
 
-  /* Two-column layout inside views */
+  /* ── Month view: two columns (inputs left, breakdown right) ── */
   #vMonth{
     display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:16px;
+    grid-template-columns:1fr minmax(280px,360px);
+    gap:18px;
     align-items:start;
+    max-width:960px;
   }
 
-  /* Full-width elements inside the grid */
-  #vMonth > .rgrid,
+  /* Result cards span full width at top */
+  #vMonth > .rgrid      { grid-column:1/-1; }
+  /* Breakdown card: right column, spans multiple rows */
+  #vMonth > .bkcard     { grid-column:2; grid-row:2/span 8; }
+  /* Everything else: left column */
   #vMonth > .ext-banner,
-  #vMonth > .bkcard,
+  #vMonth > .fab-wrap,
+  #vMonth > .card,
+  #vMonth > .savebtn,
   #vMonth > .howbtn,
-  #vMonth > [style*="height:12px"] { grid-column:1/-1; }
+  #vMonth > [style*="height:12px"] { grid-column:1; }
 
-  /* Left column: result cards + quick section */
-  #vMonth > .card:nth-of-type(1) { grid-column:1; }
+  /* ── Other views: centred with comfortable max-width ── */
+  .view-inner{
+    max-width:780px;
+    margin:0 auto;
+  }
 
   .modal{ max-width:560px; border-radius:20px; }
   #mbg{ align-items:center; }
-
   #toast{ bottom:24px; }
   .rgrid{ grid-template-columns:repeat(2,1fr); }
+
+  /* Stats: full available width, wider cards */
+  #vStats .stat-kpi-grid{ grid-template-columns:repeat(4,1fr); }
 }
 
-/* ── lg: desktop ── */
+/* ── lg: desktop (1200px+) ── */
 @media(min-width:1200px){
-  :root{ --sidebar:240px; }
-  main{ max-width:1100px; padding:28px 32px 48px; }
+  :root{ --sidebar:220px; }
+
+  main{ padding:28px 36px 48px; }
 
   #vMonth{
-    grid-template-columns:minmax(340px,2fr) minmax(300px,1fr);
+    grid-template-columns:1fr minmax(300px,400px);
+    gap:24px;
+    max-width:1080px;
+  }
+
+  .view-inner{ max-width:900px; }
+
+  /* Stats: two-column layout for charts side by side */
+  #vStats .stat-charts-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
     gap:20px;
   }
 
-  /* Right column: breakdown card pinned */
-  #vMonth > .rgrid         { grid-column:1/-1; }
-  #vMonth > .bkcard        { grid-column:2; grid-row:2/span 6; }
-  #vMonth > .ext-banner    { grid-column:1; }
-  #vMonth > .card          { grid-column:1; }
-  #vMonth > .fab-wrap      { grid-column:1; }
-  #vMonth > .savebtn       { grid-column:1; }
-  #vMonth > .howbtn        { grid-column:1/-1; }
-  #vMonth > [style*="height:12px"] { grid-column:1/-1; }
+  .modal{ max-width:620px; }
+}
 
-  /* Other views: constrain width for readability */
-  #vHistory, #vStats, #vPeople, #vExpenses{ max-width:800px; }
-
-  .modal{ max-width:600px; }
+/* ── xl: large screens (1600px+) ── */
+@media(min-width:1600px){
+  :root{ --sidebar:240px; }
+  main{ padding:32px 48px 56px; }
+  #vMonth{ max-width:1200px; }
+  .view-inner{ max-width:1000px; }
 }
 
 /* ── safe area for iPhone notch / home bar ── */
@@ -594,20 +651,24 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <main id="main">
   <div class="view on" id="view-month"><div id="vMonth"></div></div>
   <div class="view" id="view-people">
-    <div class="card">
-      <div class="clbl">Pessoas<button class="btn bghost admin-only-el" style="padding:5px 11px;font-size:.76rem" onclick="openPersonModal()">+ Adicionar</button></div>
-      <div id="vPeople"></div>
+    <div class="view-inner">
+      <div class="card">
+        <div class="clbl">Pessoas<button class="btn bghost admin-only-el" style="padding:5px 11px;font-size:.76rem" onclick="openPersonModal()">+ Adicionar</button></div>
+        <div id="vPeople"></div>
+      </div>
     </div>
   </div>
   <div class="view" id="view-expenses">
-    <div id="expReadonlyPill" class="readonly-pill" style="display:none">🔒 Só de leitura — entra em modo administrador para editar</div>
-    <div class="card">
-      <div class="clbl">Despesas Recorrentes<button class="btn bghost admin-only-el" style="padding:5px 11px;font-size:.76rem" onclick="openExpModal()">+ Adicionar</button></div>
-      <div id="vExpenses"></div>
+    <div class="view-inner">
+      <div id="expReadonlyPill" class="readonly-pill" style="display:none">🔒 Só de leitura — entra em modo administrador para editar</div>
+      <div class="card">
+        <div class="clbl">Despesas Recorrentes<button class="btn bghost admin-only-el" style="padding:5px 11px;font-size:.76rem" onclick="openExpModal()">+ Adicionar</button></div>
+        <div id="vExpenses"></div>
+      </div>
+      <p class="tsm tmuted" style="text-align:center;line-height:1.5;padding:4px 0">Valores predefinidos · Ajusta o real em cada mês</p>
     </div>
-    <p class="tsm tmuted" style="text-align:center;line-height:1.5;padding:4px 0">Valores predefinidos · Ajusta o real em cada mês</p>
   </div>
-  <div class="view" id="view-history"><div id="vHistory"></div></div>
+  <div class="view" id="view-history"><div class="view-inner" id="vHistory"></div></div>
   <div class="view" id="view-stats"><div id="vStats"></div></div>
 </main>
 <nav id="nav">
@@ -1149,7 +1210,8 @@ function renderMxBlock(exp, entry){
     <div class="mxinpcell">
       <div class="mxinplbl">
         Parte fixa
-        <button class="calc-mini" onclick="openFixedCalc('${exp.id}')" title="Calculadora">🧮</button>
+        <button class="calc-mini" onclick="openFixedCalc('${exp.id}')" title="Calculadora manual">🧮</button>
+        <button class="calc-mini" onclick="openInvoiceUpload('${exp.id}')" title="Analisar fatura com IA" style="color:var(--green)">📎</button>
         ${eff.isCustom ? `<button class="reset-mini" onclick="resetMonthFixed('${exp.id}')" title="Voltar ao padrão">repor</button>` : ''}
       </div>
       <div class="mxinpwrap ${eff.isCustom?'':'is-default'}">
@@ -1492,6 +1554,274 @@ function applyFixedCalc(){
   e.fixedCosts[window._fc.expId] = Math.round(total*100)/100;
   save(); closeModal(); renderMonth();
   toast(`Parte fixa: ${fmt(total)} ✓`);
+}
+
+/* ═══════════════════════════════════════════
+   12b. INVOICE AI ANALYSIS
+   ═══════════════════════════════════════════
+   Sends the bill (PDF or image) to Claude via the Anthropic API.
+   Claude returns a structured JSON with:
+     totalAmount  — total to pay (com IVA)
+     fixedAmount  — sum of all fixed components
+     variableAmount — variable/consumption part
+     fixedComponents — [{label, amount}] itemised fixed charges
+     warnings — any caveats or unusual items found
+   We then show a confirmation modal before applying values.
+   ─────────────────────────────────────────── */
+
+// System prompt sent with every invoice analysis request
+const INVOICE_PROMPT = `És um assistente especializado em análise de faturas de serviços domésticos em Portugal (eletricidade, gás, água, telecomunicações).
+
+Analisa a fatura fornecida e devolve APENAS um objeto JSON válido (sem markdown, sem texto extra) com esta estrutura exata:
+{
+  "tipoFatura": "luz|gas|agua|telecomunicacoes|outro",
+  "fornecedor": "nome do fornecedor",
+  "periodo": "período de faturação (ex: Mar 2026)",
+  "totalComIVA": 38.96,
+  "componentesFixos": [
+    {"label": "Nome do componente fixo", "valor": 8.73}
+  ],
+  "totalFixo": 22.79,
+  "totalVariavel": 16.17,
+  "avisos": ["aviso opcional sobre items incomuns ou créditos"],
+  "confianca": "alta|media|baixa"
+}
+
+REGRAS CRÍTICAS:
+- Todos os valores DEVEM ser com IVA incluído
+- Componentes fixos = taxas de acesso, termos tarifários fixos, contribuições fixas, taxas regulatórias fixas, potência contratada, taxa audiovisual, DGEG, etc.
+- Componentes variáveis = consumo por kWh/m³, termos variáveis, etc.
+- Se houver acertos/créditos de meses anteriores, inclui um aviso e usa o valor real da fatura (pode ser anomalamente baixo)
+- Se não conseguires identificar claramente fixo vs variável, indica confianca "baixa"
+- Nunca inventes valores — usa apenas o que está na fatura`;
+
+// Gemini API key — stored only in localStorage, never in Firebase or state
+const GEMINI_KEY_LS = 'casa_gemini_key';
+function getGeminiKey(){ try{ return localStorage.getItem(GEMINI_KEY_LS)||''; }catch(e){ return ''; } }
+function setGeminiKey(k){ try{ localStorage.setItem(GEMINI_KEY_LS, k.trim()); }catch(e){} }
+
+function openInvoiceUpload(eid){
+  if(!isAdmin){ toast('Requer modo administrador'); return; }
+  const exp = byEid(eid); if(!exp) return;
+  window._inv = { expId: eid, file: null, result: null };
+  if(!getGeminiKey()){ openGeminiKeyModal(eid); return; }
+  renderInvoiceModal('upload', exp);
+}
+
+function openGeminiKeyModal(eid){
+  openModal(`
+    <span class="mpill"></span>
+    <div class="mtitle">🔑 Chave de API Gemini</div>
+    <p style="font-size:.82rem;color:var(--ink2);line-height:1.6;margin-bottom:14px">
+      Para analisar faturas precisas de uma chave de API do Google Gemini.
+      A chave é guardada <strong>apenas neste dispositivo</strong> (localStorage) e nunca vai para a cloud.
+    </p>
+    <div class="field">
+      <label class="fl">Chave de API (começa com AIza…)</label>
+      <input type="password" id="geminiKeyInp" placeholder="AIzaSy…" autocomplete="off"
+        style="font-family:monospace;font-size:.82rem"
+        oninput="document.getElementById('geminiKeyOk').disabled=this.value.trim().length<10">
+    </div>
+    <p style="font-size:.72rem;color:var(--muted);line-height:1.5;margin-top:6px">
+      Obtém a tua chave em <strong>aistudio.google.com</strong> → Get API key.
+      O modelo usado é <code style="background:var(--surface);padding:1px 5px;border-radius:4px">gemini-2.0-flash</code>.
+    </p>
+    <div class="mfoot">
+      <button class="btn bghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn bink" id="geminiKeyOk" disabled onclick="saveGeminiKey('${eid||''}')">Guardar e continuar</button>
+    </div>
+  `);
+}
+
+function saveGeminiKey(eid){
+  const key = document.getElementById('geminiKeyInp')?.value?.trim();
+  if(!key || key.length < 10){ toast('Chave inválida'); return; }
+  setGeminiKey(key);
+  toast('Chave guardada \u2713');
+  closeModal();
+  if(eid) setTimeout(()=>openInvoiceUpload(eid), 200);
+}
+
+function clearGeminiKey(){
+  try{ localStorage.removeItem(GEMINI_KEY_LS); }catch(e){}
+  toast('Chave Gemini removida');
+}
+
+function renderInvoiceModal(state, exp){
+  exp = exp || byEid(window._inv.expId);
+  let body = '';
+
+  if(state === 'upload'){
+    const hasKey = !!getGeminiKey();
+    body = `
+      <div class="inv-drop" id="invDrop" onclick="document.getElementById('invFile').click()"
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="handleInvDrop(event,'${exp.id}')">
+        <input type="file" id="invFile" accept=".pdf,image/*" onchange="handleInvFile(event,'${exp.id}')">
+        <span class="inv-drop-ico">${exp.emoji}</span>
+        <div class="inv-drop-lbl">Clica ou arrasta a fatura de ${exp.name}</div>
+        <div class="inv-drop-sub">PDF, JPG, PNG \u2014 at\u00e9 20 MB</div>
+      </div>
+      <div class="inv-warn"><span>\ud83d\udca1</span><span>O ficheiro \u00e9 enviado diretamente para a API do Google Gemini e <strong>n\u00e3o \u00e9 guardado</strong>. Podes usar PDF ou foto do telemovel.</span></div>
+      ${hasKey ? `<p style="font-size:.68rem;color:var(--muted);text-align:right;margin-top:-6px"><button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.68rem;text-decoration:underline;font-family:inherit" onclick="openGeminiKeyModal('${exp.id}')">Alterar chave API</button></p>` : ''}
+      <div class="mfoot">
+        <button class="btn bghost" onclick="closeModal()">Cancelar</button>
+      </div>`;
+  } else if(state === 'loading'){
+    body = `
+      <div class="inv-state">
+        <div class="inv-spinner"></div>
+        <div class="inv-state-lbl" id="invLoadLbl">A analisar a fatura de ${exp.name}\u2026</div>
+        <div class="inv-state-sub">O Gemini est\u00e1 a identificar os componentes fixos e vari\u00e1veis</div>
+      </div>`;
+  } else if(state === 'result'){
+    const r = window._inv.result;
+    const confColor = r.confianca==='alta' ? 'var(--green)' : r.confianca==='media' ? 'var(--gold)' : 'var(--red)';
+    const confLbl   = r.confianca==='alta' ? '\u2713 Alta confian\u00e7a' : r.confianca==='media' ? '\u26a0 Confian\u00e7a m\u00e9dia' : '\u26a0 Confian\u00e7a baixa';
+    const comps = (r.componentesFixos||[]).map(c =>
+      `<div class="inv-comp-row"><span>${c.label}</span><span>${(Math.round(c.valor*100)/100).toFixed(2).replace('.',',')}€</span></div>`
+    ).join('');
+    const warns = (r.avisos||[]).filter(Boolean).map(w =>
+      `<div class="inv-warn"><span>\u26a0\ufe0f</span><span>${w}</span></div>`
+    ).join('');
+    body = `
+      ${warns}
+      <div class="inv-result">
+        <div class="inv-result-hd">
+          <span class="inv-result-hd-ico">${exp.emoji}</span>
+          <div><div class="inv-result-hd-tit">${r.fornecedor||exp.name} \u00b7 ${r.periodo||''}</div></div>
+          <span class="inv-result-hd-sub" style="color:${confColor};font-weight:600;font-size:.68rem">${confLbl}</span>
+        </div>
+        <div class="inv-field">
+          <div><div class="inv-field-lbl">Total da fatura (com IVA)</div></div>
+          <div class="inv-field-val"><span class="inv-field-amt">${(r.totalComIVA||0).toFixed(2).replace('.',',')}€</span></div>
+        </div>
+        <div class="inv-field">
+          <div>
+            <div class="inv-field-lbl">Parte fixa (taxas + termos fixos)</div>
+            <div class="inv-field-note">Dividida igualmente entre todos</div>
+          </div>
+          <div class="inv-field-val"><span class="inv-field-amt" style="color:var(--info)">${(r.totalFixo||0).toFixed(2).replace('.',',')}€</span></div>
+        </div>
+        <div class="inv-field">
+          <div>
+            <div class="inv-field-lbl">Parte vari\u00e1vel (consumo)</div>
+            <div class="inv-field-note">Dividida pelos dias de presen\u00e7a</div>
+          </div>
+          <div class="inv-field-val"><span class="inv-field-amt" style="color:var(--muted)">${(r.totalVariavel||0).toFixed(2).replace('.',',')}€</span></div>
+        </div>
+        ${comps ? `<div class="inv-components"><div class="inv-components-lbl">Componentes fixos identificados</div>${comps}</div>` : ''}
+      </div>
+      <div class="mfoot">
+        <button class="btn bghost" onclick="renderInvoiceModal('upload')">&#8592; Nova fatura</button>
+        <button class="btn bink" onclick="applyInvoiceResult()">Aplicar valores</button>
+      </div>`;
+  } else if(state === 'error'){
+    const isKeyErr = (window._inv.errorMsg||'').includes('API_KEY') || (window._inv.errorMsg||'').includes('401') || (window._inv.errorMsg||'').includes('403');
+    body = `
+      <div class="inv-err"><span>&#10060;</span><span>${window._inv.errorMsg||'Erro ao analisar a fatura.'}</span></div>
+      <div class="mfoot">
+        <button class="btn bghost" onclick="closeModal()">Fechar</button>
+        ${isKeyErr
+          ? `<button class="btn bink" onclick="openGeminiKeyModal('${exp.id}')">Corrigir chave API</button>`
+          : `<button class="btn bink" onclick="renderInvoiceModal('upload')">Tentar novamente</button>`}
+      </div>`;
+  }
+
+  openModal(`
+    <span class="mpill"></span>
+    <div class="mtitle">&#128206; Analisar fatura &middot; ${exp.emoji} ${exp.name}</div>
+    ${body}
+  `);
+}
+
+function handleInvDrop(event, eid){
+  event.preventDefault();
+  document.getElementById('invDrop').classList.remove('dragover');
+  const file = event.dataTransfer.files[0];
+  if(file) processInvFile(eid, file);
+}
+
+function handleInvFile(event, eid){
+  const file = event.target.files[0];
+  if(file) processInvFile(eid, file);
+}
+
+function processInvFile(eid, file){
+  const maxMB = 20;
+  if(file.size > maxMB * 1024 * 1024){ toast(`Ficheiro demasiado grande (max ${maxMB} MB)`); return; }
+  const isPdf  = file.type === 'application/pdf';
+  const isImage = file.type.startsWith('image/');
+  if(!isPdf && !isImage){ toast('Formato n\u00e3o suportado \u2014 usa PDF ou imagem'); return; }
+  window._inv.file = file;
+  window._inv.expId = eid;
+  renderInvoiceModal('loading');
+  analyseInvoice(eid, file, isPdf);
+}
+
+async function analyseInvoice(eid, file, isPdf){
+  const exp = byEid(eid);
+  const apiKey = getGeminiKey();
+  if(!apiKey){ window._inv.errorMsg = 'Chave de API Gemini n\u00e3o configurada.'; renderInvoiceModal('error'); return; }
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result.split(',')[1]);
+      reader.onerror = () => rej(new Error('Erro ao ler ficheiro'));
+      reader.readAsDataURL(file);
+    });
+    const mimeType = isPdf ? 'application/pdf' : (file.type || 'image/jpeg');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const body = {
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mimeType, data: base64 } },
+          { text: `${INVOICE_PROMPT}\n\nAnalisa esta fatura de ${exp.name} e devolve APENAS o JSON.` }
+        ]
+      }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0,
+        maxOutputTokens: 1000
+      }
+    };
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(!response.ok){
+      const errData = await response.json().catch(()=>({}));
+      throw new Error(errData?.error?.message || `Erro HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if(!rawText) throw new Error('A API n\u00e3o devolveu resposta. Tenta novamente.');
+    const clean = rawText.replace(/```json|```/g,'').trim();
+    let result;
+    try { result = JSON.parse(clean); }
+    catch(e) { throw new Error(`Resposta inesperada do Gemini:\n${rawText.slice(0,300)}`); }
+    if(typeof result.totalComIVA !== 'number')
+      throw new Error('N\u00e3o foi poss\u00edvel extrair o total da fatura. Tenta com uma imagem mais n\u00edtida.');
+    window._inv.result = result;
+    renderInvoiceModal('result');
+  } catch(err) {
+    console.error('Invoice analysis error:', err);
+    window._inv.errorMsg = err.message;
+    renderInvoiceModal('error');
+  }
+}
+
+function applyInvoiceResult(){
+  const r = window._inv.result;
+  const eid = window._inv.expId;
+  if(!r || !eid) return;
+  const entry = getEntry(_ui.year, _ui.month);
+  if(r.totalComIVA > 0)  entry.amounts[eid]   = Math.round(r.totalComIVA * 100) / 100;
+  if(r.totalFixo >= 0)   entry.fixedCosts[eid] = Math.round(r.totalFixo  * 100) / 100;
+  save(); closeModal(); renderMonth();
+  toast(`${byEid(eid)?.name}: ${(r.totalComIVA||0).toFixed(2).replace('.',',')}€ \u00b7 fixo ${(r.totalFixo||0).toFixed(2).replace('.',',')}€ \u2713`);
 }
 
 /* ═══════════════════════════════════════════
@@ -1857,10 +2187,14 @@ function renderStats(){
   const avgTable  = buildAvgTable(hist);
 
   el.innerHTML = `
-    ${kpiHtml}
-    <div class="stat-card"><div class="stat-title">Custo total por mês</div>${lineChart}</div>
-    <div class="stat-card"><div class="stat-title">Divisão por pessoa</div>${barChart}</div>
-    <div class="stat-card"><div class="stat-title">Médias por despesa</div>${avgTable}</div>
+    <div class="view-inner">
+      ${kpiHtml}
+      <div class="stat-charts-grid">
+        <div class="stat-card"><div class="stat-title">Custo total por mês</div>${lineChart}</div>
+        <div class="stat-card"><div class="stat-title">Divisão por pessoa</div>${barChart}</div>
+      </div>
+      <div class="stat-card"><div class="stat-title">Médias por despesa</div>${avgTable}</div>
+    </div>
   `;
 }
 
