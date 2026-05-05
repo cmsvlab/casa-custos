@@ -1599,190 +1599,50 @@ function openInvoiceUpload(eid){
   if(!isAdmin){ toast('Requer modo administrador'); return; }
   const exp = byEid(eid); if(!exp) return;
   window._inv = { expId: eid, file: null, result: null };
-  renderInvoiceModal('upload', exp);
+  openInvoicePasteModal(exp);
 }
 
-function renderInvoiceModal(state, exp){
-  exp = exp || byEid(window._inv.expId);
-  let body = '';
-
-  if(state === 'upload'){
-    body = `
-      <div class="inv-drop" id="invDrop" onclick="document.getElementById('invFile').click()"
-           ondragover="event.preventDefault();this.classList.add('dragover')"
-           ondragleave="this.classList.remove('dragover')"
-           ondrop="handleInvDrop(event,'${exp.id}')">
-        <input type="file" id="invFile" accept=".pdf,image/*" onchange="handleInvFile(event,'${exp.id}')">
-        <span class="inv-drop-ico">${exp.emoji}</span>
-        <div class="inv-drop-lbl">Clica ou arrasta a fatura de ${exp.name}</div>
-        <div class="inv-drop-sub">PDF, JPG, PNG — até 20 MB</div>
-      </div>
-      <div class="inv-warn"><span>💡</span><span>O ficheiro é enviado diretamente para análise por IA e <strong>não é guardado</strong>. Podes usar PDF ou foto do telemóvel.</span></div>
-      <div class="mfoot">
-        <button class="btn bghost" onclick="closeModal()">Cancelar</button>
-      </div>`;
-  } else if(state === 'loading'){
-    body = `
-      <div class="inv-state">
-        <div class="inv-spinner"></div>
-        <div class="inv-state-lbl">A analisar a fatura de ${exp.name}…</div>
-        <div class="inv-state-sub">A IA está a identificar os componentes fixos e variáveis</div>
-      </div>`;
-  } else if(state === 'result'){
-    const r = window._inv.result;
-    const confColor = r.confianca==='alta' ? 'var(--green)' : r.confianca==='media' ? 'var(--gold)' : 'var(--red)';
-    const confLbl   = r.confianca==='alta' ? '✓ Alta confiança' : r.confianca==='media' ? '⚠ Confiança média' : '⚠ Confiança baixa';
-    const comps = (r.componentesFixos||[]).map(c =>
-      `<div class="inv-comp-row"><span>${c.label}</span><span>${(Math.round(c.valor*100)/100).toFixed(2).replace('.',',')}€</span></div>`
-    ).join('');
-    const warns = (r.avisos||[]).filter(Boolean).map(w =>
-      `<div class="inv-warn"><span>⚠️</span><span>${w}</span></div>`
-    ).join('');
-    body = `
-      ${warns}
-      <div class="inv-result">
-        <div class="inv-result-hd">
-          <span class="inv-result-hd-ico">${exp.emoji}</span>
-          <div><div class="inv-result-hd-tit">${r.fornecedor||exp.name} · ${r.periodo||''}</div></div>
-          <span class="inv-result-hd-sub" style="color:${confColor};font-weight:600;font-size:.68rem">${confLbl}</span>
-        </div>
-        <div class="inv-field">
-          <div><div class="inv-field-lbl">Total da fatura (com IVA)</div></div>
-          <div class="inv-field-val"><span class="inv-field-amt">${(r.totalComIVA||0).toFixed(2).replace('.',',')}€</span></div>
-        </div>
-        <div class="inv-field">
-          <div>
-            <div class="inv-field-lbl">Parte fixa (taxas + termos fixos)</div>
-            <div class="inv-field-note">Dividida igualmente entre todos</div>
-          </div>
-          <div class="inv-field-val"><span class="inv-field-amt" style="color:var(--info)">${(r.totalFixo||0).toFixed(2).replace('.',',')}€</span></div>
-        </div>
-        <div class="inv-field">
-          <div>
-            <div class="inv-field-lbl">Parte variável (consumo)</div>
-            <div class="inv-field-note">Dividida pelos dias de presença</div>
-          </div>
-          <div class="inv-field-val"><span class="inv-field-amt" style="color:var(--muted)">${(r.totalVariavel||0).toFixed(2).replace('.',',')}€</span></div>
-        </div>
-        ${comps ? `<div class="inv-components"><div class="inv-components-lbl">Componentes fixos identificados</div>${comps}</div>` : ''}
-      </div>
-      <div class="mfoot">
-        <button class="btn bghost" onclick="renderInvoiceModal('upload')">← Nova fatura</button>
-        <button class="btn bink" onclick="applyInvoiceResult()">Aplicar valores</button>
-      </div>`;
-  } else if(state === 'error'){
-    body = `
-      <div class="inv-err"><span>❌</span><span>${window._inv.errorMsg||'Erro ao analisar a fatura. Tenta novamente ou usa a calculadora manual.'}</span></div>
-      <div class="mfoot">
-        <button class="btn bghost" onclick="closeModal()">Fechar</button>
-        <button class="btn bink" onclick="renderInvoiceModal('upload')">Tentar novamente</button>
-      </div>`;
-  }
-
+function openInvoicePasteModal(exp){
   openModal(`
     <span class="mpill"></span>
     <div class="mtitle">📎 Analisar fatura · ${exp.emoji} ${exp.name}</div>
-    ${body}
+    <div class="inv-warn" style="margin-bottom:14px">
+      <span>ℹ️</span>
+      <span>Por questões de segurança do browser, a análise de faturas tem de ser feita no <strong>chat do Claude</strong>.<br><br>
+      Carrega a fatura no chat e pede: <em>"Analisa esta fatura e diz-me o total e a parte fixa"</em>. Depois cola os valores abaixo.</span>
+    </div>
+    <div class="field">
+      <label class="fl">Total da fatura (com IVA)</label>
+      <div class="mxinpwrap">
+        <input type="number" id="invPasteTotal" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
+        <span class="mxeur">€</span>
+      </div>
+    </div>
+    <div class="field">
+      <label class="fl">Parte fixa (taxas + termos fixos)</label>
+      <div class="mxinpwrap">
+        <input type="number" id="invPasteFixed" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
+        <span class="mxeur">€</span>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn bghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn bink" onclick="applyInvoicePaste('${exp.id}')">Aplicar</button>
+    </div>
   `);
 }
 
-function handleInvDrop(event, eid){
-  event.preventDefault();
-  document.getElementById('invDrop').classList.remove('dragover');
-  const file = event.dataTransfer.files[0];
-  if(file) processInvFile(eid, file);
-}
-
-function handleInvFile(event, eid){
-  const file = event.target.files[0];
-  if(file) processInvFile(eid, file);
-}
-
-function processInvFile(eid, file){
-  const maxMB = 20;
-  if(file.size > maxMB * 1024 * 1024){ toast(`Ficheiro demasiado grande (max ${maxMB} MB)`); return; }
-  const isPdf  = file.type === 'application/pdf';
-  const isImage = file.type.startsWith('image/');
-  if(!isPdf && !isImage){ toast('Formato não suportado — usa PDF ou imagem'); return; }
-  window._inv.file = file;
-  window._inv.expId = eid;
-  renderInvoiceModal('loading');
-  analyseInvoice(eid, file, isPdf);
-}
-
-async function analyseInvoice(eid, file, isPdf){
-  const exp = byEid(eid);
-  try {
-    // Read file as base64
-    const base64 = await new Promise((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = () => res(reader.result.split(',')[1]);
-      reader.onerror = () => rej(new Error('Erro ao ler ficheiro'));
-      reader.readAsDataURL(file);
-    });
-
-    const mediaType = isPdf ? 'application/pdf' : (file.type || 'image/jpeg');
-
-    // Anthropic Messages API — API key handled automatically by claude.ai
-    const fileBlock = isPdf
-      ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } }
-      : { type: 'image',    source: { type: 'base64', media_type: mediaType, data: base64 } };
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: INVOICE_PROMPT,
-        messages: [{
-          role: 'user',
-          content: [
-            fileBlock,
-            { type: 'text', text: `Analisa esta fatura de ${exp.name} e devolve APENAS o JSON estruturado.` }
-          ]
-        }]
-      })
-    });
-
-    if(!response.ok){
-      const errData = await response.json().catch(()=>({}));
-      throw new Error(errData?.error?.message || `Erro HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rawText = data.content?.find(b => b.type === 'text')?.text || '';
-    if(!rawText) throw new Error('Sem resposta da API. Tenta novamente.');
-
-    const clean = rawText.replace(/```json|```/g,'').trim();
-    let result;
-    try { result = JSON.parse(clean); }
-    catch(e) { throw new Error(`Resposta inesperada:
-${rawText.slice(0,300)}`); }
-
-    if(typeof result.totalComIVA !== 'number')
-      throw new Error('Não foi possível extrair o total. Tenta com uma imagem mais nítida.');
-
-    window._inv.result = result;
-    renderInvoiceModal('result');
-
-  } catch(err) {
-    console.error('Invoice analysis error:', err);
-    window._inv.errorMsg = err.message;
-    renderInvoiceModal('error');
-  }
-}
-
-function applyInvoiceResult(){
-  const r = window._inv.result;
-  const eid = window._inv.expId;
-  if(!r || !eid) return;
+function applyInvoicePaste(eid){
+  const total = parseFloat(document.getElementById('invPasteTotal')?.value)||0;
+  const fixed = parseFloat(document.getElementById('invPasteFixed')?.value)||0;
+  if(!total){ toast('Insere o total da fatura'); return; }
   const entry = getEntry(_ui.year, _ui.month);
-  if(r.totalComIVA > 0)  entry.amounts[eid]   = Math.round(r.totalComIVA * 100) / 100;
-  if(r.totalFixo >= 0)   entry.fixedCosts[eid] = Math.round(r.totalFixo  * 100) / 100;
+  entry.amounts[eid]   = Math.round(total * 100) / 100;
+  entry.fixedCosts[eid] = Math.round(fixed * 100) / 100;
   save(); closeModal(); renderMonth();
-  toast(`${byEid(eid)?.name}: ${(r.totalComIVA||0).toFixed(2).replace('.',',')}€ · fixo ${(r.totalFixo||0).toFixed(2).replace('.',',')}€ ✓`);
+  toast(`${byEid(eid)?.name}: ${total.toFixed(2).replace('.',',')}€ · fixo ${fixed.toFixed(2).replace('.',',')}€ ✓`);
 }
+
 
 /* ═══════════════════════════════════════════
    13. EXTERNAL CONTRIBUTION MODAL
