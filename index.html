@@ -241,10 +241,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .paste-field-lbl{font-size:.78rem;font-weight:600;color:var(--ink2)}
 
 /* ─── HELP MODAL ──────────────────────────── */
-.help-tabs{display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
-.help-tabs::-webkit-scrollbar{display:none}
-.help-tab{flex-shrink:0;padding:6px 12px;border:1px solid var(--rule);background:var(--surface);border-radius:20px;font-family:'Outfit',sans-serif;font-size:.74rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all var(--tr);white-space:nowrap}
+.help-tabs{display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;scrollbar-color:var(--rule) transparent;-webkit-overflow-scrolling:touch}
+.help-tabs::-webkit-scrollbar{height:3px}
+.help-tabs::-webkit-scrollbar-track{background:transparent}
+.help-tabs::-webkit-scrollbar-thumb{background:var(--rule);border-radius:2px}
+.help-tab{flex-shrink:0;padding:7px 13px;border:1px solid var(--rule);background:var(--surface);border-radius:20px;font-family:'Outfit',sans-serif;font-size:.76rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all var(--tr);white-space:nowrap}
 .help-tab.on{background:var(--ink);border-color:var(--ink);color:#fff}
+/* fade hint on right edge of tab row */
+.help-tabs-wrap{position:relative;margin-bottom:14px}
+.help-tabs-wrap .help-tabs{margin-bottom:0}
+.help-tabs-wrap::after{content:'';position:absolute;right:0;top:0;bottom:6px;width:32px;background:linear-gradient(to right,transparent,var(--card));pointer-events:none;border-radius:0 4px 0 0}
 .help-section{display:none}.help-section.on{display:block;animation:rise var(--tr-md) ease}
 .help-section h3{font-family:'Playfair Display',serif;font-size:1.08rem;font-weight:700;margin-bottom:7px;letter-spacing:-.2px}
 .help-section p{font-size:.86rem;line-height:1.65;color:var(--ink2);margin-bottom:10px}
@@ -399,7 +405,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 #mbg{position:fixed;inset:0;background:rgba(24,17,12,.52);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fadein .18s ease}
 #mbg.off{display:none}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
-.modal{background:var(--card);border-radius:20px 20px 0 0;padding:18px 16px calc(36px + env(safe-area-inset-bottom,0));width:100%;max-width:480px;max-height:92svh;overflow-y:auto;animation:slideup .24s cubic-bezier(.32,.72,0,1)}
+.modal{background:var(--card);border-radius:20px 20px 0 0;padding:18px 16px calc(36px + env(safe-area-inset-bottom,0));width:100%;max-width:480px;max-height:92svh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;animation:slideup .24s cubic-bezier(.32,.72,0,1)}
 @keyframes slideup{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
 .mpill{width:32px;height:4px;background:var(--rule);border-radius:2px;margin:0 auto 14px;display:block}
 .mtitle{font-family:'Playfair Display',serif;font-size:1.22rem;font-weight:700;margin-bottom:14px;letter-spacing:-.3px}
@@ -2217,7 +2223,7 @@ function openHelpModal(initialTab){
   openModal(`
     <span class="mpill"></span>
     <div class="mtitle">📖 Como funcionam as contas</div>
-    <div class="help-tabs">${tabsHtml}</div>
+    <div class="help-tabs-wrap"><div class="help-tabs">${tabsHtml}</div></div>
     ${sectionsHtml}
     <div class="mfoot">
       <button class="btn bink" onclick="closeModal()" style="width:100%">Percebido</button>
@@ -2360,6 +2366,17 @@ document.getElementById('fb-loading').style.display='flex';
 
 // Keyboard shortcuts: ←→ for month navigation, Escape to close modal
 document.addEventListener('keydown', e => {
+  const modal = document.getElementById('mbg');
+  const modalOpen = modal && !modal.classList.contains('off');
+
+  // PIN modal — numeric keys, backspace, enter
+  if(modalOpen && document.getElementById('pinDisplay')){
+    if(e.key >= '0' && e.key <= '9'){ e.preventDefault(); pinKey(e.key); return; }
+    if(e.key === 'Backspace'){ e.preventDefault(); pinBack(); return; }
+    if(e.key === 'Escape'){ closeModal(); return; }
+    return; // don't let other shortcuts fire while PIN modal is open
+  }
+
   if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if(e.key === 'ArrowLeft')  { e.preventDefault(); chMonth(-1); }
   if(e.key === 'ArrowRight') { e.preventDefault(); chMonth(1); }
