@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f5f0ea">
+<script>/* Apply saved theme before first render to prevent flash */
+try{if(localStorage.getItem('casa_theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
 <title>Casa · Gastos</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script type="module">
@@ -638,8 +640,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 html{ color-scheme: light; }
 html.dark{ color-scheme: dark; }
 
-html.dark :root,
-html.dark body{
+html.dark{
   --ink:#f2e8dc; --ink2:#c8b8a8; --muted:#8a7d72; --subtle:#4a3e36;
   --rule:#3a2e26; --surface:#1a1410; --card:#231c16;
   --bk:#0e0b08;
@@ -727,7 +728,7 @@ html.dark .theme-btn{ color:var(--ink); }
 </nav>
 <div id="mbg" class="off" onclick="bgClose(event)"><div class="modal" id="mbox"></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
-<div id="fb-loading" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(245,240,234,.97);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif">
+<div id="fb-loading" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(245,240,234,.97);flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:'Outfit',sans-serif">
   <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
     <div style="font-size:2rem">🔥</div>
     <div style="font-weight:600;font-size:.96rem;color:#1a1612">A ligar à base de dados…</div>
@@ -2443,13 +2444,8 @@ function toggleTheme(){
 }
 
 // Apply saved theme immediately (before render to avoid flash)
-;(()=>{
-  try{
-    const saved = localStorage.getItem(THEME_KEY);
-    // Default is light — only activate dark if explicitly saved
-    applyTheme(saved === 'dark');
-  }catch(e){ applyTheme(false); }
-})();
+// Theme is also applied in <head> for first-load, this syncs the button state
+applyTheme(document.documentElement.classList.contains('dark'));
 updateMlbl();
 document.getElementById('fb-loading').style.display='flex';
 
