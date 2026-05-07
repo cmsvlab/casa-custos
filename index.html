@@ -47,10 +47,12 @@ try {
   --admin:#3d2e8c;   --admin-bg:#edeaf8;   --admin-mid:#c8c0e8;
   --info:#1e5c7a;    --info-bg:#e6f0f6;    --info-mid:#b4d0e0;
   --tr:.15s; --tr-md:.22s;
+  --bk:#18110c;
 }
 
 /* ─── BASE ─────────────────────────────────── */
-body{font-family:'Outfit',sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+html{overflow-x:hidden}
+body{font-family:'Outfit',sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 
 /* ─── FOCUS VISIBLE ───────────────────────── */
 :focus{outline:none}
@@ -94,10 +96,14 @@ body{font-family:'Outfit',sans-serif;background:var(--surface);color:var(--ink);
 .admin-mode-nav .nv.admin-only{display:flex}
 
 /* ─── MAIN / VIEWS ────────────────────────── */
-main{padding-top:var(--hdr);padding-bottom:calc(var(--nav) + 16px);min-height:100vh}
+main{padding-top:var(--hdr);padding-bottom:calc(var(--nav) + 16px);min-height:100svh}
 .view{display:none;padding:16px;animation:rise var(--tr-md) ease both}
 .view.on{display:block}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideR{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideL{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:translateX(0)}}
+#vMonth.to-right{animation:slideR .24s cubic-bezier(.22,.68,0,1.1) both}
+#vMonth.to-left{animation:slideL .24s cubic-bezier(.22,.68,0,1.1) both}
 .m-spacer{height:12px}
 
 /* ─── CARDS ───────────────────────────────── */
@@ -130,7 +136,7 @@ main{padding-top:var(--hdr);padding-bottom:calc(var(--nav) + 16px);min-height:10
 .ext-del:hover{background:var(--red-mid);color:var(--red)}
 
 /* ─── BREAKDOWN CARD ──────────────────────── */
-.bkcard{background:var(--ink);color:#fff;border-radius:var(--r);padding:16px;margin-bottom:12px}
+.bkcard{background:var(--bk);color:#fff;border-radius:var(--r);padding:16px;margin-bottom:12px}
 .bktitle{font-size:.68rem;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
 .bktitle-help{display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:rgba(255,255,255,.38);transition:color var(--tr);font-size:.68rem;letter-spacing:.2px;text-transform:none;font-weight:500}
 .bktitle-help:hover{color:rgba(255,255,255,.75)}
@@ -484,12 +490,14 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 @media(min-width:900px){
   :root{ --nav:0px; --hdr:60px; --sidebar:210px; }
 
+  /* Fix scroll: body must be exactly viewport height so main can scroll */
+  html{ height:100%; overflow:hidden; }
   body{
+    height:100dvh;
     display:grid;
     grid-template-columns:var(--sidebar) 1fr;
     grid-template-rows:var(--hdr) 1fr;
-    min-height:100vh;
-    overflow:hidden; /* prevent body scroll — main scrolls instead */
+    overflow:hidden;
   }
 
   .hdr-nav-btn{ display:none!important; }
@@ -508,11 +516,12 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
   #nav{
     grid-column:1; grid-row:2;
-    position:sticky; top:var(--hdr); height:calc(100vh - var(--hdr));
+    position:sticky; top:var(--hdr); height:calc(100dvh - var(--hdr));
     width:var(--sidebar); flex-direction:column; border-top:none;
     border-right:1px solid var(--rule); padding:12px 10px;
     align-items:stretch; justify-content:flex-start; gap:2px;
-    background:var(--card); overflow-y:auto;
+    background:var(--card); overflow-y:auto; overflow-x:hidden;
+    overscroll-behavior:contain;
     backdrop-filter:none; -webkit-backdrop-filter:none;
   }
   .nv{
@@ -532,7 +541,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     grid-column:2; grid-row:2;
     max-width:none; width:100%;
     padding:24px 28px 40px;
-    margin:0; overflow-y:auto; overflow-x:hidden;
+    margin:0;
+    overflow-y:auto; overflow-x:hidden;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+    /* height is implicitly 1fr of 100dvh minus --hdr — DO NOT set min-height here */
   }
 
   #vMonth{
@@ -611,8 +624,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* ── print ── */
 @media print{
   #hdr,#nav,#mbg,#toast,#fb-loading,.howbtn,.fab-wrap,.savebtn,.ia,.badd,.xdel,.ext-del{ display:none!important; }
-  main{ padding:0; margin:0; }
-  body{ overflow:visible; display:block; }
+  html,body{ height:auto!important; overflow:visible!important; display:block!important; }
+  main{ padding:0; margin:0; overflow:visible!important; height:auto!important; }
   .view{ display:block!important; }
   body{ background:#fff; }
   .bkcard{ break-inside:avoid; }
@@ -620,6 +633,44 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 }
 
 @keyframes fbload{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}
+
+/* ═══ DARK MODE (activado por classe html.dark, não pelo sistema) ═══════ */
+html{ color-scheme: light; }
+html.dark{ color-scheme: dark; }
+
+html.dark :root,
+html.dark body{
+  --ink:#f2e8dc; --ink2:#c8b8a8; --muted:#8a7d72; --subtle:#4a3e36;
+  --rule:#3a2e26; --surface:#1a1410; --card:#231c16;
+  --bk:#0e0b08;
+  --lift:0 1px 4px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.32);
+  --lift2:0 4px 12px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.45);
+  --green:#3db87a;   --green-bg:#0d2418;  --green-mid:#1e4832;
+  --red:#e0614a;     --red-bg:#280e0a;    --red-mid:#4a1e18;
+  --gold:#d4a030;    --gold-bg:#251808;   --gold-mid:#4a3010;
+  --admin:#9080f0;   --admin-bg:#140e28;  --admin-mid:#28205a;
+  --info:#50a0d0;    --info-bg:#080e1c;   --info-mid:#10243a;
+}
+html.dark #hdr{ background:rgba(26,20,16,.97); }
+html.dark #hdr.admin-mode{ background:rgba(20,14,40,.97); }
+html.dark #nav{ background:rgba(35,28,22,.97); }
+html.dark .modal{ background:var(--card); }
+html.dark #mbg{ background:rgba(0,0,0,.65); }
+html.dark .nv.on{ border-left-color:var(--red); }
+html.dark input[type=text],html.dark input[type=number],html.dark select,html.dark textarea{ background:#1a1410; }
+html.dark input:focus,html.dark select:focus{ background:#231c16; }
+html.dark input::placeholder{ color:var(--subtle); }
+html.dark .mxinpwrap.is-default input{ background:#160f0b; }
+html.dark .stepper{ background:#1a1410; }
+html.dark .spopt{ background:#1a1410; }
+html.dark .pkey{ background:#2a221a; color:var(--ink); }
+html.dark .stat-kpi{ background:#1e1812; }
+html.dark .emj{ background:#1a1410; }
+html.dark .dtog{ background:#1a1410; }
+html.dark .calc-suggest-btn{ background:#1a1410; }
+html.dark .calc-suggest-btn:hover{ background:#231c16; }
+html.dark #fb-loading{ background:rgba(26,20,16,.97)!important; }
+html.dark .theme-btn{ color:var(--ink); }
 </style>
 </head>
 <body>
@@ -631,6 +682,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
       <button class="ia admin-only-flex hdr-nav-btn" id="btn-people" onclick="showView('people')" aria-label="Pessoas" style="width:32px;height:32px;font-size:.9rem">👥</button>
       <button class="ia admin-only-flex hdr-nav-btn" id="btn-exps" onclick="showView('expenses')" aria-label="Despesas" style="width:32px;height:32px;font-size:.9rem">📋</button>
       <button class="help-btn" onclick="openHelpModal()" aria-label="Como funciona?">i</button>
+      <button class="lock-btn theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Alternar tema claro/escuro" title="Tema claro/escuro">☀</button>
       <button class="lock-btn" id="lockBtn" onclick="toggleAdmin()" aria-label="Modo Administrador">🔒</button>
     </div>
   </div>
@@ -824,7 +876,7 @@ function openPinModal(){
     <div class="pin-hint">PIN de 4 dígitos</div>
   `);
 }
-function pinKey(d){ if(_pin.length>=4) return; _pin+=d; updatePinDots(false); if(_pin.length===4) setTimeout(checkPin,120); }
+function pinKey(d){ if(_pin.length>=4) return; _pin+=d; haptic('light'); updatePinDots(false); if(_pin.length===4) setTimeout(checkPin,120); }
 function pinBack(){ _pin=_pin.slice(0,-1); updatePinDots(false); }
 function updatePinDots(error){
   for(let i=0;i<4;i++){
@@ -1102,11 +1154,18 @@ function chMonth(d){
   _ui.month+=d;
   if(_ui.month>11){_ui.month=0;_ui.year++;}
   if(_ui.month<0){_ui.month=11;_ui.year--;}
-  saveUI(); updateMlbl();
-  if(_ui.view==='month') renderMonth();
+  saveUI(); updateMlbl(); haptic('light');
+  if(_ui.view==='month'){
+    const vm = document.getElementById('vMonth');
+    vm.className = d > 0 ? 'to-right' : 'to-left';
+    renderMonth();
+  }
 }
 
-function updateMlbl(){ document.getElementById('mlbl').textContent=fmtM(_ui.year,_ui.month); }
+function updateMlbl(){
+  document.getElementById('mlbl').textContent=fmtM(_ui.year,_ui.month);
+  document.title=MONTHS_PT[_ui.month]+' '+_ui.year+' · casa.';
+}
 
 /* ═══════════════════════════════════════════
    9. BREAKDOWN TABLE BUILDER (dark card)
@@ -1423,7 +1482,7 @@ function saveMonth(){
   const res=calc(y,m); const entry=getEntry(y,m);
   const snap={id:uid(),year:y,month:m,label:fmtM(y,m),people:clone(S.people),expenses:clone(S.expenses),entry:clone(entry),shares:clone(res.shares),breakdown:clone(res.breakdown),credits:clone(res.credits),grandTotal:Object.values(res.shares).reduce((a,b)=>a+(b>0?b:0),0),savedAt:new Date().toISOString()};
   const idx=S.history.findIndex(h=>h.year===y&&h.month===m);
-  if(idx>=0){S.history[idx]=snap;toast('Mês atualizado ✓');}else{S.history.unshift(snap);toast('Mês guardado ✓');}
+  if(idx>=0){S.history[idx]=snap;haptic('medium');toast('Mês atualizado ✓');}else{S.history.unshift(snap);haptic('medium');toast('Mês guardado ✓');}
   save();
 }
 
@@ -2361,8 +2420,59 @@ function initFirebase(){
 /* ═══════════════════════════════════════════
    22. INIT
    ═══════════════════════════════════════════ */
+
+// ── Theme toggle ──────────────────────────────────────────
+// Default: light. Persists in localStorage. Never follows system.
+const THEME_KEY = 'casa_theme';
+
+function applyTheme(dark){
+  document.documentElement.classList.toggle('dark', dark);
+  const btn = document.getElementById('themeBtn');
+  if(btn){
+    btn.textContent = dark ? '🌙' : '☀';
+    btn.title = dark ? 'Mudar para tema claro' : 'Mudar para tema escuro';
+    btn.setAttribute('aria-label', dark ? 'Mudar para tema claro' : 'Mudar para tema escuro');
+  }
+}
+
+function toggleTheme(){
+  const isDark = document.documentElement.classList.contains('dark');
+  const newDark = !isDark;
+  try{ localStorage.setItem(THEME_KEY, newDark ? 'dark' : 'light'); }catch(e){}
+  applyTheme(newDark);
+}
+
+// Apply saved theme immediately (before render to avoid flash)
+;(()=>{
+  try{
+    const saved = localStorage.getItem(THEME_KEY);
+    // Default is light — only activate dark if explicitly saved
+    applyTheme(saved === 'dark');
+  }catch(e){ applyTheme(false); }
+})();
 updateMlbl();
 document.getElementById('fb-loading').style.display='flex';
+
+// ─── HAPTIC FEEDBACK ─────────────────────────────────
+// Subtle vibration on mobile for tactile confirmation.
+function haptic(style){
+  if(!navigator.vibrate) return;
+  ({light:()=>navigator.vibrate(6), medium:()=>navigator.vibrate(14), heavy:()=>navigator.vibrate(28)})[style||'light']?.();
+}
+
+// ─── SWIPE TO CHANGE MONTH ───────────────────────────
+// On mobile, swipe left/right on the main content area.
+let _tx=0, _ty=0;
+document.getElementById('main').addEventListener('touchstart', e=>{
+  _tx=e.touches[0].clientX; _ty=e.touches[0].clientY;
+},{passive:true});
+document.getElementById('main').addEventListener('touchend', e=>{
+  if(_ui.view!=='month') return;
+  const dx=e.changedTouches[0].clientX-_tx;
+  const dy=e.changedTouches[0].clientY-_ty;
+  // Only fire if clearly horizontal and meaningful distance
+  if(Math.abs(dx)>56 && Math.abs(dx)>Math.abs(dy)*1.6) chMonth(dx>0?-1:1);
+},{passive:true});
 
 // Keyboard shortcuts: ←→ for month navigation, Escape to close modal
 document.addEventListener('keydown', e => {
@@ -2371,7 +2481,7 @@ document.addEventListener('keydown', e => {
 
   // PIN modal — numeric keys, backspace, enter
   if(modalOpen && document.getElementById('pinDisplay')){
-    if(e.key >= '0' && e.key <= '9'){ e.preventDefault(); pinKey(e.key); return; }
+    if(e.key >= '0' && e.key <= '9'){ e.preventDefault(); pinKey(e.key); haptic('light'); return; }
     if(e.key === 'Backspace'){ e.preventDefault(); pinBack(); return; }
     if(e.key === 'Escape'){ closeModal(); return; }
     return; // don't let other shortcuts fire while PIN modal is open
